@@ -7,8 +7,7 @@ use crate::error::PeepError;
 
 /// The result of comparing a design image against an implementation screenshot.
 #[derive(Debug)]
-// Fields will be consumed in a later task; the struct is referenced from main() already.
-#[allow(dead_code)]
+#[expect(dead_code, reason = "fields wired up in later tasks (T2-T4)")]
 pub struct CompareResult {
     /// Similarity score in `[0.0, 1.0]` where `1.0` means pixel-perfect identical.
     pub score: f64,
