@@ -17,7 +17,6 @@ use image_compare::Similarity;
 ///
 /// `gain` amplifies the weighted diff before clamping to [0, 1]. Typical value
 /// 4.0; higher = exaggerate small diffs.
-#[expect(dead_code, reason = "called by CLI wiring in a later task (T4)")]
 pub fn render(
     impl_image: &RgbaImage,
     similarity: &Similarity,

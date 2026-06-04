@@ -41,7 +41,6 @@ pub struct Args {
     pub no_diff: bool,
 }
 
-#[expect(dead_code, reason = "wired in T4")]
 pub(crate) fn parse() -> Args {
     Args::parse()
 }

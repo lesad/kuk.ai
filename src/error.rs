@@ -27,6 +27,14 @@ pub enum PeepError {
     #[error("comparison failed: {0}")]
     Compare(#[from] image_compare::CompareError),
 
+    /// Failed to write the diff image to the output path.
+    #[error("failed to write diff image to {path}: {source}")]
+    DiffWrite {
+        path: std::path::PathBuf,
+        #[source]
+        source: image::ImageError,
+    },
+
     /// A file I/O error (e.g. saving the diff image).
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),

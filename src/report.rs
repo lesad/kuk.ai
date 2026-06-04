@@ -22,7 +22,6 @@ impl Report {
     /// Build a `Report` from the compare result and the CLI args that drove this run.
     ///
     /// `diff_path` is the path that was written, or `None` if `--no-diff`.
-    #[expect(dead_code, reason = "wired in T4")]
     pub fn from_compare(result: &CompareResult, args: &Args, diff_path: Option<PathBuf>) -> Self {
         Self {
             score: result.score,
@@ -37,7 +36,6 @@ impl Report {
     /// Format as a two-line human-readable summary.
     ///
     /// Example: `"score: 0.9958 (99.58% similar)\ndiff:  diff.png\n"`
-    #[expect(dead_code, reason = "wired in T4")]
     pub fn to_human(&self) -> String {
         let diff_display = match &self.diff_path {
             Some(path) => path.display().to_string(),
@@ -53,7 +51,6 @@ impl Report {
     /// Format as a compact JSON line ending with `\n`.
     ///
     /// Uses compact (non-pretty) serialization suitable for CI consumption.
-    #[expect(dead_code, reason = "wired in T4")]
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         let mut s = serde_json::to_string(self)?;
         s.push('\n');
