@@ -26,15 +26,15 @@ for the design.
 
 ```sh
 peep design.png impl.png
-# → score: 0.0042 (99.58% similar)
+# → score: 0.9958 (99.58% similar)
 # → diff:  diff.png
 ```
 
 Flags:
 
 - `--output <path>` — where to write the diff PNG (default: `diff.png`)
-- `--threshold <f64>` — pass/fail threshold on the hybrid diff score (default: `0.01`)
-- `--fail` — exit 1 when score exceeds threshold (for CI)
+- `--threshold <f64>` — minimum acceptable similarity, range `[0, 1]` (default: `0.99`; `1.0` = identical)
+- `--fail` — exit 1 when `score < threshold` (for CI)
 - `--json` — emit machine-readable result on stdout
 - `--no-diff` — skip writing the diff image
 
