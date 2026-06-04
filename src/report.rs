@@ -158,7 +158,7 @@ mod tests {
 
         assert!((parsed["score"].as_f64().unwrap() - 0.9958).abs() < 1e-10);
         assert!((parsed["threshold"].as_f64().unwrap() - 0.99).abs() < 1e-10);
-        assert_eq!(parsed["passed"].as_bool().unwrap(), true);
+        assert!(parsed["passed"].as_bool().unwrap());
         assert_eq!(parsed["width"].as_u64().unwrap(), 100);
         assert_eq!(parsed["height"].as_u64().unwrap(), 200);
         assert_eq!(parsed["diff_path"].as_str().unwrap(), "diff.png");
