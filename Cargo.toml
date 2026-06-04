@@ -1,0 +1,24 @@
+[package]
+name = "peep-rs"
+version = "0.1.0"
+edition = "2024"
+description = "CLI tool to compare two webpage screenshots and produce a similarity score with a red-overlay diff image."
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/lesad/peep-rs"
+
+[[bin]]
+name = "peep"
+path = "src/main.rs"
+
+[dependencies]
+image = "0.25"
+image-compare = "0.5"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+
+[dev-dependencies]
+assert_cmd = "2"
