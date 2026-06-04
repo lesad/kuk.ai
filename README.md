@@ -40,6 +40,28 @@ Flags:
 
 Errors exit with code `2`. `--fail` exits with `1` on threshold breach.
 
+## Skill
+
+`skills/peep-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: it uses the Figma desktop MCP to locate the right node, then calls `skills/peep-compare/scripts/figma-fetch.sh` to download the design PNG via the Figma REST API, then runs `peep` against an implementation screenshot.
+
+Enable globally (one-time):
+
+```sh
+ln -s "$PWD/skills/peep-compare" ~/.claude/skills/peep-compare
+```
+
+Requirements: `FIGMA_TOKEN` env var (scope **File content: Read**, get one at <https://www.figma.com/settings>), plus `curl` and `jq`.
+
+`scripts/figma-fetch.sh` is also usable standalone:
+
+```sh
+export FIGMA_TOKEN=figd_...
+DESIGN=$(skills/peep-compare/scripts/figma-fetch.sh <fileKey> <nodeId>)
+peep "$DESIGN" impl.png --json
+```
+
+Flags: `--scale N` (0.01–4.0, default `2`), `--format png|jpg|svg|pdf` (default `png`), `--absolute|--no-absolute` (sets `use_absolute_bounds`, default on), `--out PATH|-` (default: auto-generated path under `$TMPDIR`; `-` streams bytes to stdout).
+
 ## License
 
 MIT
