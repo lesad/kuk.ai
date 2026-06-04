@@ -66,6 +66,31 @@ fn load_rgba(path: &Path) -> Result<RgbaImage, PeepError> {
 }
 
 #[cfg(test)]
+impl CompareResult {
+    /// Construct a minimal `CompareResult` for use in unit tests that only care
+    /// about `score`, `width`, and `height` — not the full similarity image.
+    pub(crate) fn test_fixture(score: f64, width: u32, height: u32) -> Self {
+        use image::{ImageBuffer, Rgba, RgbaImage};
+        use image_compare::prelude::RGBASimilarityImage;
+
+        let sim_image: RGBASimilarityImage =
+            ImageBuffer::from_pixel(width, height, Rgba([0.0f32, 0.0, 0.0, 1.0]));
+        let similarity = Similarity {
+            score,
+            image: sim_image.into(),
+        };
+        let impl_image = RgbaImage::new(width, height);
+        Self {
+            score,
+            similarity,
+            impl_image,
+            width,
+            height,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use image::{Rgba, RgbaImage};
