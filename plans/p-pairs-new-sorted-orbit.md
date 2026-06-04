@@ -14,11 +14,12 @@ Research (prior handoff) settled on `image-compare` crate (ChrisRega, MIT) using
 
 | Topic | Choice |
 |-------|--------|
-| Algorithm | Hardcoded `rgba_hybrid_compare`. No `--algorithm` flag v1 |
+| Algorithm | Hardcoded `image_compare::rgba_hybrid_compare`. Returns `Similarity { score: f64, image: SimilarityImage }`. **score = 1.0 means identical, 0.0 means dissimilar.** No `--algorithm` flag v1 |
 | Dim mismatch | Error out, non-zero exit, clear message |
 | Diff style | Red overlay tinted onto impl image, single PNG |
-| Exit code | Default 0 with score. `--fail` flag → exit 1 if score > threshold |
+| Exit code | Default 0 with score. `--fail` flag → exit 1 if `score < threshold` |
 | Output | Human text default. `--json` flag emits machine-readable |
+| Threshold | Minimum acceptable similarity, default `0.99` (1.0 = identical) |
 | Config file | None v1. CLI flags + hardcoded defaults |
 | Progress UI | None v1 |
 | AA toggle | None v1 (hybrid handles via SSIM luma) |
@@ -29,17 +30,17 @@ Research (prior handoff) settled on `image-compare` crate (ChrisRega, MIT) using
 peep <design> <impl> [--output <path>] [--threshold <f64>] [--fail] [--json] [--no-diff]
 ```
 
-Defaults: `--output diff.png`, `--threshold 0.01` (hybrid score scale: 0 = identical, 1 = max diff), no `--fail`.
+Defaults: `--output diff.png`, `--threshold 0.99` (minimum similarity to pass; 1.0 = identical), no `--fail`.
 
 Human stdout:
 ```
-score: 0.0042 (99.58% similar)
+score: 0.9958 (99.58% similar)
 diff:  diff.png
 ```
 
 JSON stdout:
 ```json
-{"score":0.0042,"similarity":0.9958,"threshold":0.01,"passed":true,"diff_path":"diff.png"}
+{"score":0.9958,"threshold":0.99,"passed":true,"diff_path":"diff.png"}
 ```
 
 Errors → stderr, exit 2 (distinct from `--fail`'s exit 1).
@@ -61,14 +62,22 @@ One responsibility per module. `main.rs` stays thin (parse → compare → overl
 ### Data flow
 
 1. `cli::Args` parsed
-2. `compare::run(design_path, impl_path)` → loads both via `image::open`, verifies `dimensions()` equal else `Err(DimMismatch)`, calls `image_compare::rgba_hybrid_compare(&design_rgba, &impl_rgba)?`, returns `CompareResult { score, similarity_image, width, height }`
+2. `compare::run(design_path, impl_path)` → loads both via `image::open(...).into_rgba8()`, verifies `dimensions()` equal else `Err(DimMismatch)`, calls `image_compare::rgba_hybrid_compare(&design_rgba, &impl_rgba)?`, returns `CompareResult { score, similarity_image, impl_image, width, height }` where `score` is similarity (1.0 = identical).
 3. If diff output enabled: `overlay::render(&impl_img, &similarity_image, RED)` → `RgbaImage`, save to `--output`
 4. `report::emit(&result, &args)` → stdout (human or JSON)
-5. exit: `2` on error, `1` if `--fail && score > threshold`, else `0`
+5. exit: `2` on error, `1` if `--fail && score < threshold`, else `0`
 
 ### Overlay rendering
 
-`SimilarityImage` from image-compare is a single-channel diff map (per-pixel, 0..1 scale). For each pixel: `alpha = clamp(diff * gain, 0, 1)` where `gain` boosts visibility (start with 4.0, tune empirically). Blend `(255, 0, 0)` over impl pixel using `alpha`. Output `RgbaImage`, write PNG via `image` crate.
+`SimilarityImage::RGBA` from `rgba_hybrid_compare` is `ImageBuffer<Rgba<f32>, Vec<f32>>`
+where R/G/B channels store **per-pixel differences** (0.0 = match, 1.0 = max diff)
+and the A channel is a **visibility weight** (`alpha_vis`, ∈ [0.1, 1.0]), NOT a diff.
+
+For each pixel, compute `max_diff = max(r, g, b)` (alpha intentionally excluded),
+then `weighted_diff = max_diff * alpha_vis`, then
+`alpha_factor = (weighted_diff * gain).clamp(0.0, 1.0)`. Alpha-blend
+`(255, 0, 0)` over the impl pixel using `alpha_factor`; preserve the impl's alpha.
+Output `RgbaImage`, write PNG via the `image` crate.
 
 ## Dependencies (Cargo.toml)
 
@@ -76,7 +85,7 @@ One responsibility per module. `main.rs` stays thin (parse → compare → overl
 [package]
 name = "peep-rs"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "peep"
@@ -89,15 +98,15 @@ clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
 ```
 
 No `toml` dep — no config file. No `indicatif` — no progress.
 
 ## Testing strategy
 
-- Unit: `overlay::render` with synthetic 2×2 SimilarityImage (identical → no red; max diff → full red). Pure function, easy to assert pixel values.
-- Unit: `compare::run` happy path on two tiny identical PNG fixtures → score < 0.001. Mismatch dims → error.
+- Unit: `overlay::render` with synthetic 2×2 SimilarityImage (similarity 1.0 → no red; similarity 0.0 → full red). Pure function, easy to assert pixel values.
+- Unit: `compare::run` happy path on two tiny identical RGBA buffers → score > 0.999. Mismatch dims → error.
 - Integration: `tests/cli.rs` using `assert_cmd` + fixture PNGs in `tests/fixtures/` (identical pair, slightly-different pair). Assert exit codes for default vs `--fail`, JSON shape, diff file written.
 
 ## Critical files to create
@@ -139,10 +148,10 @@ End-to-end check before declaring done:
 ```
 cargo build --release
 ./target/release/peep tests/fixtures/identical_a.png tests/fixtures/identical_b.png
-# expect: score ~0, exit 0, diff.png mostly transparent
+# expect: score ~1.0, exit 0, diff.png mostly transparent
 
-./target/release/peep tests/fixtures/diff_a.png tests/fixtures/diff_b.png --threshold 0.001 --fail
-# expect: score > 0.001, exit 1, diff.png shows red regions
+./target/release/peep tests/fixtures/diff_a.png tests/fixtures/diff_b.png --threshold 0.99 --fail
+# expect: score < 0.99, exit 1, diff.png shows red regions
 
 ./target/release/peep tests/fixtures/identical_a.png tests/fixtures/diff_a.png --json
 # expect: valid JSON on stdout
