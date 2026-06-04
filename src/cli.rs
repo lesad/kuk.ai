@@ -42,7 +42,7 @@ pub struct Args {
 }
 
 #[expect(dead_code, reason = "wired in T4")]
-pub fn parse() -> Args {
+pub(crate) fn parse() -> Args {
     Args::parse()
 }
 

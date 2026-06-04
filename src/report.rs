@@ -18,11 +18,11 @@ pub struct Report {
     pub diff_path: Option<PathBuf>,
 }
 
-#[expect(dead_code, reason = "wired in T4")]
 impl Report {
     /// Build a `Report` from the compare result and the CLI args that drove this run.
     ///
     /// `diff_path` is the path that was written, or `None` if `--no-diff`.
+    #[expect(dead_code, reason = "wired in T4")]
     pub fn from_compare(result: &CompareResult, args: &Args, diff_path: Option<PathBuf>) -> Self {
         Self {
             score: result.score,
@@ -37,6 +37,7 @@ impl Report {
     /// Format as a two-line human-readable summary.
     ///
     /// Example: `"score: 0.9958 (99.58% similar)\ndiff:  diff.png\n"`
+    #[expect(dead_code, reason = "wired in T4")]
     pub fn to_human(&self) -> String {
         let diff_display = match &self.diff_path {
             Some(path) => path.display().to_string(),
@@ -52,10 +53,11 @@ impl Report {
     /// Format as a compact JSON line ending with `\n`.
     ///
     /// Uses compact (non-pretty) serialization suitable for CI consumption.
-    pub fn to_json(&self) -> String {
-        let mut s = serde_json::to_string(self).expect("Report serialization is infallible");
+    #[expect(dead_code, reason = "wired in T4")]
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        let mut s = serde_json::to_string(self)?;
         s.push('\n');
-        s
+        Ok(s)
     }
 }
 
@@ -131,6 +133,19 @@ mod tests {
     }
 
     #[test]
+    fn from_compare_passed_when_score_equals_threshold() {
+        let result = CompareResult::test_fixture(0.99, 10, 10);
+        let args = make_args(0.99, false);
+
+        let report = Report::from_compare(&result, &args, None);
+
+        assert!(
+            report.passed,
+            "score == threshold should pass (>= semantics)"
+        );
+    }
+
+    #[test]
     fn to_json_should_round_trip_with_expected_values() {
         let report = Report {
             score: 0.9958,
@@ -141,9 +156,8 @@ mod tests {
             diff_path: Some(PathBuf::from("diff.png")),
         };
 
-        let json_str = report.to_json();
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json_str).expect("JSON should be valid");
+        let json = report.to_json().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON should be valid");
 
         assert!((parsed["score"].as_f64().unwrap() - 0.9958).abs() < 1e-10);
         assert!((parsed["threshold"].as_f64().unwrap() - 0.99).abs() < 1e-10);
@@ -151,6 +165,11 @@ mod tests {
         assert_eq!(parsed["width"].as_u64().unwrap(), 100);
         assert_eq!(parsed["height"].as_u64().unwrap(), 200);
         assert_eq!(parsed["diff_path"].as_str().unwrap(), "diff.png");
+        assert!(json.ends_with('\n'), "to_json must terminate with \\n");
+        assert!(
+            !json.trim_end_matches('\n').contains('\n'),
+            "to_json must be compact / single-line"
+        );
     }
 
     #[test]
@@ -164,9 +183,8 @@ mod tests {
             diff_path: None,
         };
 
-        let json_str = report.to_json();
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json_str).expect("JSON should be valid");
+        let json = report.to_json().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON should be valid");
 
         assert!(
             parsed.get("diff_path").is_none(),
