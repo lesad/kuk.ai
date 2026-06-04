@@ -1,5 +1,6 @@
 mod compare;
 mod error;
+mod overlay;
 
 use compare::CompareResult;
 use error::PeepError;
