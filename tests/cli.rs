@@ -99,10 +99,10 @@ fn identical_pngs_with_json_flag_should_produce_valid_json_with_passed_true() {
         json["score"].as_f64().unwrap_or(0.0) >= 0.999,
         "score should be >= 0.999 for identical images"
     );
-    assert!(
-        json.get("diff_path").is_some(),
-        "diff_path should be present in JSON"
-    );
+    let diff_path = json["diff_path"]
+        .as_str()
+        .expect("diff_path should be a string");
+    assert!(!diff_path.is_empty(), "diff_path should be non-empty");
 }
 
 #[test]
@@ -129,6 +129,7 @@ fn different_pngs_without_fail_flag_should_exit_0_with_score_below_threshold() {
         .arg(&b)
         .arg("--output")
         .arg(&out)
+        .arg("--json")
         .assert()
         // No --fail flag: must exit 0 even though score < threshold
         .success()
@@ -136,18 +137,18 @@ fn different_pngs_without_fail_flag_should_exit_0_with_score_below_threshold() {
         .stdout
         .clone();
 
-    let stdout = String::from_utf8_lossy(&output);
-    // Parse the score from "score: X.XXXX (…)"
-    let score: f64 = stdout
-        .lines()
-        .find(|l| l.starts_with("score:"))
-        .and_then(|l| l.split_whitespace().nth(1))
-        .and_then(|s| s.parse().ok())
-        .expect("expected a score line in stdout");
+    let json: serde_json::Value =
+        serde_json::from_slice(&output).expect("stdout should be valid JSON");
 
+    assert_eq!(
+        json["passed"].as_bool(),
+        Some(false),
+        "passed should be false for significantly different images"
+    );
     assert!(
-        score < 0.99,
-        "expected score < 0.99 for significantly different images, got {score}"
+        json["score"].as_f64().unwrap() < 0.99,
+        "expected score < 0.99 for significantly different images, got {}",
+        json["score"]
     );
     assert!(out.exists(), "diff PNG should be written even on low score");
 }
@@ -311,6 +312,7 @@ fn help_flag_should_exit_0_and_show_all_flags() {
 
 #[test]
 fn version_flag_should_exit_0_and_print_crate_version() {
+    // version comes from Cargo.toml — bump together
     peep()
         .arg("--version")
         .assert()
