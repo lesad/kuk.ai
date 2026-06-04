@@ -1,0 +1,17 @@
+/target
+**/*.rs.bk
+*.pdb
+Cargo.lock.bak
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local diff output during dev
+/diff.png
+/*.diff.png
