@@ -18,11 +18,10 @@ with anti-aliased text.
 
 ## Status
 
-Early scaffold. Implementation in progress — see
-[`plans/p-pairs-new-sorted-orbit.md`](https://github.com/lesad/peep-rs/blob/main/plans/p-pairs-new-sorted-orbit.md)
-for the design.
+v0.1.0 — initial release. CLI fully working; deferred for later: TOML config,
+multiple algorithms, side-by-side output, anti-aliasing toggle.
 
-## Usage (planned)
+## Usage
 
 ```sh
 peep design.png impl.png
@@ -34,6 +33,7 @@ Flags:
 
 - `--output <path>` — where to write the diff PNG (default: `diff.png`)
 - `--threshold <f64>` — minimum acceptable similarity, range `[0, 1]` (default: `0.99`; `1.0` = identical)
+- `--gain <f32>` — visibility gain on the per-pixel diff before clamp (default: `4.0`; higher = exaggerate small differences)
 - `--fail` — exit 1 when `score < threshold` (for CI)
 - `--json` — emit machine-readable result on stdout
 - `--no-diff` — skip writing the diff image

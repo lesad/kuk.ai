@@ -312,10 +312,9 @@ fn help_flag_should_exit_0_and_show_all_flags() {
 
 #[test]
 fn version_flag_should_exit_0_and_print_crate_version() {
-    // version comes from Cargo.toml — bump together
     peep()
         .arg("--version")
         .assert()
         .success()
-        .stdout(contains("0.1.0"));
+        .stdout(contains(env!("CARGO_PKG_VERSION")));
 }

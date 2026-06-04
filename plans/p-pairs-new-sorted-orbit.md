@@ -69,7 +69,15 @@ One responsibility per module. `main.rs` stays thin (parse → compare → overl
 
 ### Overlay rendering
 
-`SimilarityImage::RGBA` from `rgba_hybrid_compare` is `ImageBuffer<Rgba<f32>, Vec<f32>>` where each channel is similarity in `[0, 1]` (1 = matched, 0 = totally different). For each pixel: compute `diff = 1.0 - min(channels)` (or use Y channel only — start with min for safety), then `alpha = clamp(diff * gain, 0, 1)` where `gain` boosts visibility (start with 4.0, tune empirically). Alpha-blend `(255, 0, 0)` over the impl pixel. Output `RgbaImage`, write PNG via `image` crate.
+`SimilarityImage::RGBA` from `rgba_hybrid_compare` is `ImageBuffer<Rgba<f32>, Vec<f32>>`
+where R/G/B channels store **per-pixel differences** (0.0 = match, 1.0 = max diff)
+and the A channel is a **visibility weight** (`alpha_vis`, ∈ [0.1, 1.0]), NOT a diff.
+
+For each pixel, compute `max_diff = max(r, g, b)` (alpha intentionally excluded),
+then `weighted_diff = max_diff * alpha_vis`, then
+`alpha_factor = (weighted_diff * gain).clamp(0.0, 1.0)`. Alpha-blend
+`(255, 0, 0)` over the impl pixel using `alpha_factor`; preserve the impl's alpha.
+Output `RgbaImage`, write PNG via the `image` crate.
 
 ## Dependencies (Cargo.toml)
 
