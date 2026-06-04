@@ -17,11 +17,10 @@ fn main() -> ExitCode {
     let args = cli::parse();
     match run(&args) {
         Ok(report) => {
-            print_report(&report, args.json).unwrap_or_else(|e| {
+            if let Err(e) = print_report(&report, args.json) {
                 eprintln!("error: {e}");
-                // Falling here means stdout write or JSON serialization failed;
-                // we still want exit code 2.
-            });
+                return ExitCode::from(2);
+            }
             if args.fail && !report.passed {
                 ExitCode::from(1)
             } else {
