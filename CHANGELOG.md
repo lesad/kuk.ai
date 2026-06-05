@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `peep-compare` skill Step 1: mandatory MCP visual confirmation before any REST call. When the Figma desktop MCP is available, the agent must screenshot the candidate node via `mcp__figma-desktop__get_screenshot`, show it to the user, and only call `figma-fetch.sh` after explicit confirmation. Wrong-node REST fetches now require user error, not agent guessing. When MCP is unavailable, Branch B falls back to a best-effort flow: prefer asking the user for a clean node-id URL, but if only a frame name is available, restate the interpretation and proceed with a single REST call — degraded validation is still better than no fetch.
+- `peep-compare` skill: new Step 2.5 pre-flight smoke test. Agent vision-inspects both PNGs before invoking peep to catch wildly-wrong impl captures (wrong theme, wrong viewport, wrong page, loading state, locale mismatch). Reports a re-capture request to the user instead of running peep when red flags are present — no point computing MSSIM on two obviously-different images.
 
 ## [0.2.0] - 2026-06-05
 

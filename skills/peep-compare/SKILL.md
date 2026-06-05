@@ -104,6 +104,33 @@ Use Chrome's built-in DevTools node screenshot. Pixel-perfect at the page DPR. W
 
 **Full-page capture variant.** If you used "Capture full size screenshot" or "Capture screenshot" (viewport) instead of node-level, the result will rarely match the Figma frame. Either re-fetch the design at a matching `--scale` (`tools/figma-fetch.sh <key> <id> --scale 1` for DPR=1, etc.) or run the `sips` resize on whichever side is bigger.
 
+### Step 2.5 — Pre-flight sanity check (smoke test)
+
+Before invoking peep, eyeball both inputs yourself. Peep computes MSSIM + chroma diff, which is wasted compute when the two images are obviously of different content. Catch wildly-wrong impl captures up-front so you can re-capture rather than report a near-zero score.
+
+Read both PNGs into your vision context:
+
+```bash
+# Confirm both files exist and are non-empty before reading
+ls -l "$DESIGN" /tmp/impl.png
+```
+
+Then use the **Read** tool on each path. Vision-inspect for obvious smell tests — these are red flags, not exhaustive:
+
+- **Wildly different content** — design shows a dashboard, impl shows a login page. The user captured the wrong route or wrong element.
+- **Different theme** — design is dark mode, impl is light mode (or vice versa). User has the wrong theme toggle.
+- **Different viewport class** — design is a 1440px desktop frame, impl is a 375px mobile slice. User captured at the wrong breakpoint.
+- **Different language / locale** — design is in English, impl is in Czech. Browser locale mismatch.
+- **Empty / blank / loading state** — impl PNG is a solid color, skeleton, or "Loading…" spinner. User captured before the page settled.
+- **Massive layout offset** — element is in roughly the right place but a whole header / sidebar is missing on one side. User cropped a different region than the design covers.
+
+**Decision:**
+
+- **All sanity checks pass** → proceed to Step 3 (run peep).
+- **One or more red flags** → STOP. Do not run peep. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. Peep would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
+
+This step is cheap (two image reads) and saves cycles when the human-loop part of the workflow has gone off the rails.
+
 ### Step 3 — Run comparison
 
 ```bash
