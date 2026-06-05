@@ -113,7 +113,7 @@ impl Report {
         ));
         out.push_str(&format!("dims_match: {}\n", self.dims_match));
         out.push_str(&format!("score: {:.4}\n", self.score));
-        out.push_str(&format!("threshold: {}\n", self.threshold));
+        out.push_str(&format!("threshold: {:.4}\n", self.threshold));
         out.push_str(&format!("passed: {}\n", self.passed));
         if let Some(path) = &self.diff_path {
             out.push_str(&format!("diff_path: {}\n", path.display()));
@@ -350,10 +350,37 @@ mod tests {
         assert!(toon.contains("b,impl.png,1600,1200"));
         assert!(toon.contains("dims_match: true"));
         assert!(toon.contains("score: 0.9958"));
-        assert!(toon.contains("threshold: 0.99"));
+        assert!(toon.contains("threshold: 0.9900"));
         assert!(toon.contains("passed: true"));
         assert!(toon.contains("diff_path: diff.png"));
         assert!(toon.ends_with('\n'));
+    }
+
+    #[test]
+    fn to_toon_should_render_whole_threshold_with_decimals() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("a.png"),
+                width: 10,
+                height: 10,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("b.png"),
+                width: 10,
+                height: 10,
+            },
+            dims_match: true,
+            score: 1.0,
+            threshold: 1.0,
+            passed: true,
+            diff_path: None,
+        };
+
+        let toon = report.to_toon();
+        assert!(
+            toon.contains("threshold: 1.0000"),
+            "threshold=1.0 must serialize with decimals, got:\n{toon}"
+        );
     }
 
     #[test]
