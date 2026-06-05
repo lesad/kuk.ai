@@ -284,7 +284,7 @@ fn missing_input_file_should_exit_2_with_error_on_stderr() {
 }
 
 #[test]
-fn dimension_mismatch_should_exit_2_with_sizes_in_stderr() {
+fn dimension_mismatch_human_should_exit_3_with_dims_on_stdout() {
     let dir = tempdir().expect("tempdir");
     let a = dir.path().join("small.png");
     let b = dir.path().join("large.png");
@@ -300,10 +300,15 @@ fn dimension_mismatch_should_exit_2_with_sizes_in_stderr() {
         .arg(&out)
         .assert()
         .failure()
-        .code(2)
-        .stderr(contains("dimension mismatch"))
-        .stderr(contains("4x4"))
-        .stderr(contains("8x8"));
+        .code(3)
+        .stdout(contains("dimension mismatch"))
+        .stdout(contains("4x4"))
+        .stdout(contains("8x8"));
+
+    assert!(
+        !out.exists(),
+        "diff PNG must not be written on dimension mismatch"
+    );
 }
 
 #[test]
@@ -372,6 +377,80 @@ fn identical_pngs_with_format_toon_should_contain_sources_header_and_match() {
         toon.lines().any(|l| l.contains("b,") && l.contains("32,32")),
         "expected `b` row with 32x32, got:\n{toon}"
     );
+}
+
+#[test]
+fn dimension_mismatch_format_json_should_exit_3_with_structured_payload() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("design.png");
+    let b = dir.path().join("impl.png");
+    let out = dir.path().join("diff.png");
+
+    write_solid_png(&a, 4, 4, Rgba([255, 0, 0, 255]));
+    write_solid_png(&b, 8, 8, Rgba([0, 255, 0, 255]));
+
+    let output = peep()
+        .arg(&a)
+        .arg(&b)
+        .arg("--output")
+        .arg(&out)
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .failure()
+        .code(3)
+        .get_output()
+        .stdout
+        .clone();
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output).expect("stdout should be valid JSON on mismatch");
+
+    assert_eq!(json["dims_match"].as_bool(), Some(false));
+    assert_eq!(json["error"].as_str(), Some("dimension_mismatch"));
+    assert_eq!(json["a"]["width"].as_u64(), Some(4));
+    assert_eq!(json["a"]["height"].as_u64(), Some(4));
+    assert_eq!(json["b"]["width"].as_u64(), Some(8));
+    assert_eq!(json["b"]["height"].as_u64(), Some(8));
+    assert_eq!(json["delta"]["width"].as_i64(), Some(4));
+    assert_eq!(json["delta"]["height"].as_i64(), Some(4));
+    assert!(!out.exists(), "diff PNG must not be written on mismatch");
+}
+
+#[test]
+fn dimension_mismatch_format_toon_should_exit_3_with_structured_payload() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("design.png");
+    let b = dir.path().join("impl.png");
+    let out = dir.path().join("diff.png");
+
+    write_solid_png(&a, 4, 4, Rgba([255, 0, 0, 255]));
+    write_solid_png(&b, 8, 8, Rgba([0, 255, 0, 255]));
+
+    let output = peep()
+        .arg(&a)
+        .arg(&b)
+        .arg("--output")
+        .arg(&out)
+        .arg("--format")
+        .arg("toon")
+        .assert()
+        .failure()
+        .code(3)
+        .get_output()
+        .stdout
+        .clone();
+
+    let toon = String::from_utf8(output).expect("stdout should be utf-8");
+
+    assert!(
+        toon.contains("sources[2]{label,path,width,height}:"),
+        "got:\n{toon}"
+    );
+    assert!(toon.contains("dims_match: false"), "got:\n{toon}");
+    assert!(toon.contains("error: dimension_mismatch"), "got:\n{toon}");
+    assert!(toon.contains("delta:"), "got:\n{toon}");
+    assert!(!out.exists());
 }
 
 #[test]
