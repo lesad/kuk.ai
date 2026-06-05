@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `peep-compare` skill Step 1: mandatory MCP visual confirmation before any REST call. When the Figma desktop MCP is available, the agent must screenshot the candidate node via `mcp__figma-desktop__get_screenshot`, show it to the user, and only call `figma-fetch.sh` after explicit confirmation. Wrong-node REST fetches now require user error, not agent guessing. Falls back to a stricter "ask for node-id" prompt when MCP is unavailable.
+
 ## [0.2.0] - 2026-06-05
 
 ### Added
