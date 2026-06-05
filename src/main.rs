@@ -13,6 +13,28 @@ use crate::report::Report;
 
 const OVERLAY_COLOR: Rgba<u8> = Rgba([255, 0, 0, 255]);
 
+#[derive(serde::Serialize)]
+struct ToonMismatch<'a> {
+    sources: [ToonSource<'a>; 2],
+    dims_match: bool,
+    delta: ToonDelta,
+    error: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct ToonSource<'a> {
+    label: &'a str,
+    path: &'a std::path::Path,
+    width: u32,
+    height: u32,
+}
+
+#[derive(serde::Serialize)]
+struct ToonDelta {
+    width: i64,
+    height: i64,
+}
+
 fn print_mismatch(
     format: OutputFormat,
     design_path: &std::path::Path,
@@ -60,14 +82,34 @@ fn print_mismatch(
             out.write_all(s.as_bytes())?;
         }
         OutputFormat::Toon => {
-            writeln!(out, "sources[2]{{label,path,width,height}}:")?;
-            writeln!(out, "  a,{},{},{}", design_path.display(), aw, ah)?;
-            writeln!(out, "  b,{},{},{}", impl_path.display(), bw, bh)?;
-            writeln!(out, "dims_match: false")?;
-            writeln!(out, "delta:")?;
-            writeln!(out, "  width: {}", dw)?;
-            writeln!(out, "  height: {}", dh)?;
-            writeln!(out, "error: dimension_mismatch")?;
+            let shim = ToonMismatch {
+                sources: [
+                    ToonSource {
+                        label: "a",
+                        path: design_path,
+                        width: aw,
+                        height: ah,
+                    },
+                    ToonSource {
+                        label: "b",
+                        path: impl_path,
+                        width: bw,
+                        height: bh,
+                    },
+                ],
+                dims_match: false,
+                delta: ToonDelta {
+                    width: dw,
+                    height: dh,
+                },
+                error: "dimension_mismatch",
+            };
+            let mut s = toon_format::encode_default(&shim)
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            if !s.ends_with('\n') {
+                s.push('\n');
+            }
+            out.write_all(s.as_bytes())?;
         }
     }
     Ok(())
