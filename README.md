@@ -66,7 +66,7 @@ Requirements: `FIGMA_TOKEN` env var (scope **File content: Read**, get one at <h
 ```sh
 export FIGMA_TOKEN=figd_...
 DESIGN=$(skills/peep-compare/scripts/figma-fetch.sh <fileKey> <nodeId>)
-peep "$DESIGN" impl.png --json
+peep "$DESIGN" impl.png --format toon
 ```
 
 Flags: `--scale N` (0.01–4.0, default `2`), `--format png|jpg|svg|pdf` (default `png`), `--absolute|--no-absolute` (sets `use_absolute_bounds`, default on), `--out PATH|-` (default: auto-generated path under `$TMPDIR`; `-` streams bytes to stdout).
