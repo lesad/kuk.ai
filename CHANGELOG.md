@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `skills/peep-compare/` — bundled Claude Code skill for visual comparison workflow. Contains `SKILL.md` and `scripts/figma-fetch.sh`, a bash helper that fetches a Figma node as PNG (or JPG/SVG/PDF) via the REST `/v1/images` endpoint. Writes to a self-describing default path under `$TMPDIR` and prints the path on stdout for shell capture; supports `--scale`, `--format`, `--absolute/--no-absolute`, and `--out PATH|-`. Requires `FIGMA_TOKEN` with `file_content:read` scope plus `curl` and `jq`. To enable globally: `ln -s "$PWD/skills/peep-compare" ~/.claude/skills/peep-compare`.
+- `tools/figma-fetch.sh` — bash helper that fetches a Figma node as PNG (or JPG/SVG/PDF) via the REST `/v1/images` endpoint. Writes to a self-describing default path under `$TMPDIR` and prints the path on stdout for shell capture; supports `--scale`, `--format`, `--absolute/--no-absolute`, and `--out PATH|-`. Requires `FIGMA_TOKEN` with `file_content:read` scope plus `curl` and `jq`.
+- `--format <human|json|toon>` flag on `peep` selecting output format. Default `human`.
+- Both inputs' dimensions are echoed on every successful run (in whichever format was selected).
+- TOON output via `--format toon` for token-efficient agent consumption.
+- Exit code `3` for dimension mismatch, distinct from generic error code `2`. Recoverable — callers can branch on it.
+
+### Changed
+
+- `peep-compare` skill: Step 1 rewritten to use hybrid Figma desktop MCP navigation plus REST fetch via `tools/figma-fetch.sh`. Documented that MCP image content blocks are vision-only and cannot be proxied to peep.
+- `peep-compare` skill: Step 2 rewritten to use Chrome (or any Chromium-family) DevTools "Capture node screenshot" as the sole impl capture mechanism. The latest `~/Downloads/*.png` is copied to `/tmp/impl.png`. No new bundled tools.
+- Dimension-mismatch report now goes to **stdout** in the selected format (was free-text on stderr in `0.1.0`). Same stream as the success report so callers parse once.
+
+### Removed
+
+- `--json` flag on `peep`. Replaced by `--format json`. No alias.
 
 ## [0.1.0] - 2026-06-04
 
