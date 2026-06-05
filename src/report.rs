@@ -5,14 +5,23 @@ use serde::Serialize;
 use crate::cli::Args;
 use crate::compare::CompareResult;
 
+/// Path + dimensions for one side of a comparison.
+#[derive(Debug, Clone, Serialize)]
+pub struct ImageInfo {
+    pub path: PathBuf,
+    pub width: u32,
+    pub height: u32,
+}
+
 /// Outcome of a single comparison, suitable for both human and machine rendering.
 #[derive(Debug, Clone, Serialize)]
 pub struct Report {
+    pub a: ImageInfo,
+    pub b: ImageInfo,
+    pub dims_match: bool,
     pub score: f64,
     pub threshold: f64,
     pub passed: bool,
-    pub width: u32,
-    pub height: u32,
     /// Where the diff PNG was written, or `None` if `--no-diff`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub diff_path: Option<PathBuf>,
@@ -21,36 +30,57 @@ pub struct Report {
 impl Report {
     /// Build a `Report` from the compare result and the CLI args that drove this run.
     ///
-    /// `diff_path` is the path that was written, or `None` if `--no-diff`.
-    pub fn from_compare(result: &CompareResult, args: &Args, diff_path: Option<PathBuf>) -> Self {
+    /// `design_path` / `impl_path` come from CLI args. `diff_path` is the path that was
+    /// written, or `None` if `--no-diff`.
+    pub fn from_compare(
+        result: &CompareResult,
+        args: &Args,
+        design_path: PathBuf,
+        impl_path: PathBuf,
+        diff_path: Option<PathBuf>,
+    ) -> Self {
         Self {
+            a: ImageInfo {
+                path: design_path,
+                width: result.width,
+                height: result.height,
+            },
+            b: ImageInfo {
+                path: impl_path,
+                width: result.width,
+                height: result.height,
+            },
+            dims_match: true,
             score: result.score,
             threshold: args.threshold,
             passed: result.score >= args.threshold,
-            width: result.width,
-            height: result.height,
             diff_path,
         }
     }
 
-    /// Format as a two-line human-readable summary.
-    ///
-    /// Example: `"score: 0.9958 (99.58% similar)\ndiff:  diff.png\n"`
+    /// Format as a multi-line human-readable summary including a dims block.
     pub fn to_human(&self) -> String {
         let diff_display = match &self.diff_path {
             Some(path) => path.display().to_string(),
             None => "(skipped)".to_string(),
         };
+        let match_marker = if self.dims_match { "match" } else { "MISMATCH" };
         format!(
-            "score: {:.4} ({:.2}% similar)\ndiff:  {diff_display}\n",
-            self.score,
-            self.score * 100.0,
+            "peep\n  {a_path}  {a_w}x{a_h}\n  {b_path}  {b_w}x{b_h}  {match_marker}\nscore: {score:.4} ({pct:.2}% similar)\ndiff:  {diff_display}\n",
+            a_path = self.a.path.display(),
+            a_w = self.a.width,
+            a_h = self.a.height,
+            b_path = self.b.path.display(),
+            b_w = self.b.width,
+            b_h = self.b.height,
+            match_marker = match_marker,
+            score = self.score,
+            pct = self.score * 100.0,
+            diff_display = diff_display,
         )
     }
 
-    /// Format as a compact JSON line ending with `\n`.
-    ///
-    /// Uses compact (non-pretty) serialization suitable for CI consumption.
+    /// Format as a compact JSON line terminated by `\n`.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         let mut s = serde_json::to_string(self)?;
         s.push('\n');
@@ -77,14 +107,144 @@ mod tests {
         let args = make_args(0.95, false);
         let diff_path = Some(PathBuf::from("out.png"));
 
-        let report = Report::from_compare(&result, &args, diff_path.clone());
+        let report = Report::from_compare(
+            &result,
+            &args,
+            PathBuf::from("design.png"),
+            PathBuf::from("impl.png"),
+            diff_path.clone(),
+        );
 
         assert!((report.score - 0.9758).abs() < f64::EPSILON);
         assert!((report.threshold - 0.95).abs() < f64::EPSILON);
         assert!(report.passed);
-        assert_eq!(report.width, 800);
-        assert_eq!(report.height, 600);
+        assert_eq!(report.a.path, PathBuf::from("design.png"));
+        assert_eq!(report.a.width, 800);
+        assert_eq!(report.a.height, 600);
+        assert_eq!(report.b.path, PathBuf::from("impl.png"));
+        assert_eq!(report.b.width, 800);
+        assert_eq!(report.b.height, 600);
+        assert!(report.dims_match);
         assert_eq!(report.diff_path, diff_path);
+    }
+
+    #[test]
+    fn to_human_should_include_dims_block_and_score() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("design.png"),
+                width: 1600,
+                height: 1200,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("impl.png"),
+                width: 1600,
+                height: 1200,
+            },
+            dims_match: true,
+            score: 0.9958,
+            threshold: 0.99,
+            passed: true,
+            diff_path: Some(PathBuf::from("diff.png")),
+        };
+
+        let output = report.to_human();
+
+        assert!(output.contains("design.png"));
+        assert!(output.contains("impl.png"));
+        assert!(output.contains("1600x1200"));
+        assert!(output.contains("match"));
+        assert!(output.contains("score: 0.9958"));
+        assert!(output.contains("99.58% similar"));
+        assert!(output.contains("diff:  diff.png"));
+    }
+
+    #[test]
+    fn to_human_should_show_skipped_when_no_diff_path() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("a.png"),
+                width: 100,
+                height: 200,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("b.png"),
+                width: 100,
+                height: 200,
+            },
+            dims_match: true,
+            score: 0.9958,
+            threshold: 0.99,
+            passed: true,
+            diff_path: None,
+        };
+
+        let output = report.to_human();
+        assert!(output.contains("diff:  (skipped)"));
+    }
+
+    #[test]
+    fn to_json_should_contain_a_b_and_dims_match() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("design.png"),
+                width: 1600,
+                height: 1200,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("impl.png"),
+                width: 1600,
+                height: 1200,
+            },
+            dims_match: true,
+            score: 0.9958,
+            threshold: 0.99,
+            passed: true,
+            diff_path: Some(PathBuf::from("diff.png")),
+        };
+
+        let json = report.to_json().expect("to_json must succeed");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("JSON should parse");
+
+        assert_eq!(parsed["a"]["path"].as_str(), Some("design.png"));
+        assert_eq!(parsed["a"]["width"].as_u64(), Some(1600));
+        assert_eq!(parsed["a"]["height"].as_u64(), Some(1200));
+        assert_eq!(parsed["b"]["path"].as_str(), Some("impl.png"));
+        assert_eq!(parsed["b"]["width"].as_u64(), Some(1600));
+        assert_eq!(parsed["b"]["height"].as_u64(), Some(1200));
+        assert_eq!(parsed["dims_match"].as_bool(), Some(true));
+        assert!((parsed["score"].as_f64().unwrap() - 0.9958).abs() < 1e-10);
+        assert_eq!(parsed["passed"].as_bool(), Some(true));
+        assert_eq!(parsed["diff_path"].as_str(), Some("diff.png"));
+        assert!(json.ends_with('\n'));
+        assert!(!json.trim_end_matches('\n').contains('\n'));
+    }
+
+    #[test]
+    fn to_json_should_omit_diff_path_when_none() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("a.png"),
+                width: 10,
+                height: 10,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("b.png"),
+                width: 10,
+                height: 10,
+            },
+            dims_match: true,
+            score: 0.9958,
+            threshold: 0.99,
+            passed: true,
+            diff_path: None,
+        };
+
+        let json = report.to_json().expect("to_json must succeed");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("JSON should parse");
+        assert!(parsed.get("diff_path").is_none());
     }
 
     #[test]
@@ -92,41 +252,15 @@ mod tests {
         let result = CompareResult::test_fixture(0.5, 10, 10);
         let args = make_args(0.99, false);
 
-        let report = Report::from_compare(&result, &args, None);
+        let report = Report::from_compare(
+            &result,
+            &args,
+            PathBuf::from("a.png"),
+            PathBuf::from("b.png"),
+            None,
+        );
 
         assert!(!report.passed);
-    }
-
-    #[test]
-    fn to_human_should_format_score_and_diff_path() {
-        let report = Report {
-            score: 0.9958,
-            threshold: 0.99,
-            passed: true,
-            width: 100,
-            height: 200,
-            diff_path: Some(PathBuf::from("diff.png")),
-        };
-
-        let output = report.to_human();
-
-        assert_eq!(output, "score: 0.9958 (99.58% similar)\ndiff:  diff.png\n");
-    }
-
-    #[test]
-    fn to_human_should_show_skipped_when_no_diff_path() {
-        let report = Report {
-            score: 0.9958,
-            threshold: 0.99,
-            passed: true,
-            width: 100,
-            height: 200,
-            diff_path: None,
-        };
-
-        let output = report.to_human();
-
-        assert_eq!(output, "score: 0.9958 (99.58% similar)\ndiff:  (skipped)\n");
     }
 
     #[test]
@@ -134,58 +268,14 @@ mod tests {
         let result = CompareResult::test_fixture(0.99, 10, 10);
         let args = make_args(0.99, false);
 
-        let report = Report::from_compare(&result, &args, None);
-
-        assert!(
-            report.passed,
-            "score == threshold should pass (>= semantics)"
+        let report = Report::from_compare(
+            &result,
+            &args,
+            PathBuf::from("a.png"),
+            PathBuf::from("b.png"),
+            None,
         );
-    }
 
-    #[test]
-    fn to_json_should_round_trip_with_expected_values() {
-        let report = Report {
-            score: 0.9958,
-            threshold: 0.99,
-            passed: true,
-            width: 100,
-            height: 200,
-            diff_path: Some(PathBuf::from("diff.png")),
-        };
-
-        let json = report.to_json().unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON should be valid");
-
-        assert!((parsed["score"].as_f64().unwrap() - 0.9958).abs() < 1e-10);
-        assert!((parsed["threshold"].as_f64().unwrap() - 0.99).abs() < 1e-10);
-        assert!(parsed["passed"].as_bool().unwrap());
-        assert_eq!(parsed["width"].as_u64().unwrap(), 100);
-        assert_eq!(parsed["height"].as_u64().unwrap(), 200);
-        assert_eq!(parsed["diff_path"].as_str().unwrap(), "diff.png");
-        assert!(json.ends_with('\n'), "to_json must terminate with \\n");
-        assert!(
-            !json.trim_end_matches('\n').contains('\n'),
-            "to_json must be compact / single-line"
-        );
-    }
-
-    #[test]
-    fn to_json_should_omit_diff_path_when_none() {
-        let report = Report {
-            score: 0.9958,
-            threshold: 0.99,
-            passed: true,
-            width: 100,
-            height: 200,
-            diff_path: None,
-        };
-
-        let json = report.to_json().unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON should be valid");
-
-        assert!(
-            parsed.get("diff_path").is_none(),
-            "diff_path key should not be present in JSON when None"
-        );
+        assert!(report.passed, "score == threshold should pass (>= semantics)");
     }
 }

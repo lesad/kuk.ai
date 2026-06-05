@@ -57,7 +57,13 @@ fn run(args: &Args) -> Result<Report, PeepError> {
         })?;
         Some(args.output.clone())
     };
-    Ok(Report::from_compare(&result, args, diff_path))
+    Ok(Report::from_compare(
+        &result,
+        args,
+        args.design.clone(),
+        args.implementation.clone(),
+        diff_path,
+    ))
 }
 
 fn print_report(report: &Report, format: OutputFormat) -> Result<(), Box<dyn std::error::Error>> {

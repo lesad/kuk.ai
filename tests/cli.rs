@@ -66,7 +66,7 @@ fn identical_pngs_should_exit_0_and_score_near_1_and_write_diff() {
 }
 
 #[test]
-fn identical_pngs_with_json_flag_should_produce_valid_json_with_passed_true() {
+fn identical_pngs_with_format_json_should_produce_valid_json_with_a_b_blocks() {
     let dir = tempdir().expect("tempdir");
     let a = dir.path().join("a.png");
     let b = dir.path().join("b.png");
@@ -80,7 +80,8 @@ fn identical_pngs_with_json_flag_should_produce_valid_json_with_passed_true() {
         .arg(&b)
         .arg("--output")
         .arg(&out)
-        .arg("--format").arg("json")
+        .arg("--format")
+        .arg("json")
         .assert()
         .success()
         .get_output()
@@ -90,15 +91,25 @@ fn identical_pngs_with_json_flag_should_produce_valid_json_with_passed_true() {
     let json: serde_json::Value =
         serde_json::from_slice(&output).expect("stdout should be valid JSON");
 
-    assert_eq!(
-        json["passed"].as_bool(),
-        Some(true),
-        "passed should be true for identical images"
+    assert_eq!(json["dims_match"].as_bool(), Some(true));
+    assert_eq!(json["a"]["width"].as_u64(), Some(32));
+    assert_eq!(json["a"]["height"].as_u64(), Some(32));
+    assert_eq!(json["b"]["width"].as_u64(), Some(32));
+    assert_eq!(json["b"]["height"].as_u64(), Some(32));
+    assert!(
+        json["a"]["path"]
+            .as_str()
+            .expect("a.path should be string")
+            .ends_with("a.png")
     );
     assert!(
-        json["score"].as_f64().unwrap_or(0.0) >= 0.999,
-        "score should be >= 0.999 for identical images"
+        json["b"]["path"]
+            .as_str()
+            .expect("b.path should be string")
+            .ends_with("b.png")
     );
+    assert_eq!(json["passed"].as_bool(), Some(true));
+    assert!(json["score"].as_f64().unwrap_or(0.0) >= 0.999);
     let diff_path = json["diff_path"]
         .as_str()
         .expect("diff_path should be a string");
@@ -320,4 +331,28 @@ fn version_flag_should_exit_0_and_print_crate_version() {
         .assert()
         .success()
         .stdout(contains(env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
+fn identical_pngs_with_format_human_should_print_dims_block() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("design.png");
+    let b = dir.path().join("impl.png");
+    let out = dir.path().join("diff.png");
+
+    write_solid_png(&a, 32, 32, Rgba([0, 0, 255, 255]));
+    write_solid_png(&b, 32, 32, Rgba([0, 0, 255, 255]));
+
+    peep()
+        .arg(&a)
+        .arg(&b)
+        .arg("--output")
+        .arg(&out)
+        .assert()
+        .success()
+        .stdout(contains("design.png"))
+        .stdout(contains("impl.png"))
+        .stdout(contains("32x32"))
+        .stdout(contains("match"))
+        .stdout(contains("score: 1.0000"));
 }
