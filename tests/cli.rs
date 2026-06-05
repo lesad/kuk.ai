@@ -80,7 +80,7 @@ fn identical_pngs_with_json_flag_should_produce_valid_json_with_passed_true() {
         .arg(&b)
         .arg("--output")
         .arg(&out)
-        .arg("--json")
+        .arg("--format").arg("json")
         .assert()
         .success()
         .get_output()
@@ -129,7 +129,7 @@ fn different_pngs_without_fail_flag_should_exit_0_with_score_below_threshold() {
         .arg(&b)
         .arg("--output")
         .arg(&out)
-        .arg("--json")
+        .arg("--format").arg("json")
         .assert()
         // No --fail flag: must exit 0 even though score < threshold
         .success()
@@ -210,7 +210,7 @@ fn different_pngs_with_fail_and_json_should_exit_1_with_passed_false() {
         .arg("--fail")
         .arg("--threshold")
         .arg("0.99")
-        .arg("--json")
+        .arg("--format").arg("json")
         .assert()
         .failure()
         .code(1)
@@ -305,7 +305,10 @@ fn help_flag_should_exit_0_and_show_all_flags() {
         .stdout(contains("--threshold"))
         .stdout(contains("--gain"))
         .stdout(contains("--fail"))
-        .stdout(contains("--json"))
+        .stdout(contains("--format"))
+        .stdout(contains("human"))
+        .stdout(contains("json"))
+        .stdout(contains("toon"))
         .stdout(contains("--no-diff"))
         .stdout(contains("IMPL"));
 }

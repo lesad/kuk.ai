@@ -1,5 +1,17 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
+
+/// Output format selector. CLI accepts only lowercase variants.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+#[clap(rename_all = "lower")]
+pub enum OutputFormat {
+    /// Default. Multi-line human-readable report.
+    Human,
+    /// Compact single-line JSON.
+    Json,
+    /// TOON (Token-Oriented Object Notation) — compact, agent-friendly.
+    Toon,
+}
 
 #[derive(Parser, Debug)]
 #[command(
@@ -32,9 +44,10 @@ pub struct Args {
     #[arg(long)]
     pub fail: bool,
 
-    /// Emit the report as JSON on stdout instead of human text.
-    #[arg(long)]
-    pub json: bool,
+    /// Output format. `human` is multi-line text, `json` is compact JSON,
+    /// `toon` is TOON (token-efficient for agent contexts).
+    #[arg(long, value_enum, default_value_t = OutputFormat::Human, value_name = "FORMAT")]
+    pub format: OutputFormat,
 
     /// Skip writing the diff PNG.
     #[arg(long)]
@@ -59,7 +72,7 @@ mod tests {
         assert!((args.threshold - 0.99).abs() < f64::EPSILON);
         assert!((args.gain - 4.0).abs() < f32::EPSILON);
         assert!(!args.fail);
-        assert!(!args.json);
+        assert_eq!(args.format, OutputFormat::Human);
         assert!(!args.no_diff);
     }
 
@@ -76,7 +89,8 @@ mod tests {
             "--gain",
             "8.0",
             "--fail",
-            "--json",
+            "--format",
+            "json",
             "--no-diff",
         ])
         .expect("parse should succeed");
@@ -85,8 +99,21 @@ mod tests {
         assert!((args.threshold - 0.95).abs() < f64::EPSILON);
         assert!((args.gain - 8.0).abs() < f32::EPSILON);
         assert!(args.fail);
-        assert!(args.json);
+        assert_eq!(args.format, OutputFormat::Json);
         assert!(args.no_diff);
+    }
+
+    #[test]
+    fn format_toon_should_parse() {
+        let args = Args::try_parse_from(["peep", "a.png", "b.png", "--format", "toon"])
+            .expect("parse should succeed");
+        assert_eq!(args.format, OutputFormat::Toon);
+    }
+
+    #[test]
+    fn format_uppercase_should_be_rejected() {
+        let result = Args::try_parse_from(["peep", "a.png", "b.png", "--format", "JSON"]);
+        assert!(result.is_err(), "uppercase format values must be rejected");
     }
 
     #[test]

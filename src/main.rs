@@ -7,7 +7,7 @@ mod report;
 use image::Rgba;
 use std::process::ExitCode;
 
-use crate::cli::Args;
+use crate::cli::{Args, OutputFormat};
 use crate::error::PeepError;
 use crate::report::Report;
 
@@ -17,7 +17,7 @@ fn main() -> ExitCode {
     let args = cli::parse();
     match run(&args) {
         Ok(report) => {
-            if let Err(e) = print_report(&report, args.json) {
+            if let Err(e) = print_report(&report, args.format) {
                 eprintln!("error: {e}");
                 return ExitCode::from(2);
             }
@@ -60,14 +60,17 @@ fn run(args: &Args) -> Result<Report, PeepError> {
     Ok(Report::from_compare(&result, args, diff_path))
 }
 
-fn print_report(report: &Report, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn print_report(report: &Report, format: OutputFormat) -> Result<(), Box<dyn std::error::Error>> {
     use std::io::Write;
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    if json {
-        out.write_all(report.to_json()?.as_bytes())?;
-    } else {
-        out.write_all(report.to_human().as_bytes())?;
+    match format {
+        OutputFormat::Human => out.write_all(report.to_human().as_bytes())?,
+        OutputFormat::Json => out.write_all(report.to_json()?.as_bytes())?,
+        OutputFormat::Toon => {
+            // Wired up in Task 4. Falls back to JSON for now so the build stays green.
+            out.write_all(report.to_json()?.as_bytes())?;
+        }
     }
     Ok(())
 }
@@ -85,6 +88,8 @@ mod tests {
         file
     }
 
+    use crate::cli::OutputFormat;
+
     fn make_args(design: PathBuf, implementation: PathBuf, output: PathBuf) -> Args {
         Args {
             design,
@@ -93,7 +98,7 @@ mod tests {
             threshold: 0.99,
             gain: 4.0,
             fail: false,
-            json: false,
+            format: OutputFormat::Human,
             no_diff: false,
         }
     }
