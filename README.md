@@ -17,15 +17,17 @@ with anti-aliased text.
 
 ## Status
 
-v0.1.0 — initial release. CLI fully working; deferred for later: TOML config,
-multiple algorithms, side-by-side output, anti-aliasing toggle.
+v0.2.0 — output format selector (`--format human|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
 
 ## Usage
 
 ```sh
 peep design.png impl.png
-# → score: 0.9958 (99.58% similar)
-# → diff:  diff.png
+# peep
+#   design.png  1600x1200
+#   impl.png    1600x1200  match
+# score: 0.9958 (99.58% similar)
+# diff:  diff.png
 ```
 
 Flags:
@@ -34,10 +36,18 @@ Flags:
 - `--threshold <f64>` — minimum acceptable similarity, range `[0, 1]` (default: `0.99`; `1.0` = identical)
 - `--gain <f32>` — visibility gain on the per-pixel diff before clamp (default: `4.0`; higher = exaggerate small differences)
 - `--fail` — exit 1 when `score < threshold` (for CI)
-- `--json` — emit machine-readable result on stdout
+- `--format <human|json|toon>` — output format (default: `human`)
 - `--no-diff` — skip writing the diff image
 
-Errors exit with code `2`. `--fail` exits with `1` on threshold breach.
+Exit codes: `0` ok, `1` threshold breach (with `--fail`), `2` generic error, `3` dimension mismatch.
+
+### Output formats
+
+- `human` — multi-line text with a dims block, similarity score, and diff path.
+- `json` — single compact JSON line with `a`, `b`, `dims_match`, `score`, `passed`, `diff_path`.
+- `toon` — TOON encoding (token-efficient) with a `sources[2]{label,path,width,height}` array and scalar fields. Intended for LLM/agent consumption.
+
+On dimension mismatch (exit 3), the same format conventions apply: `human` prints a human-readable mismatch report; `json` and `toon` emit structured payloads with `dims_match: false`, a `delta`, and `error: dimension_mismatch`.
 
 ## Skill
 
