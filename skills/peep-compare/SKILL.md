@@ -11,7 +11,8 @@ This skill compares a Figma design frame against a browser implementation screen
 
 **Required tools:**
 - `peep` — similarity scoring and diff generation
-- `pngpaste` — saves clipboard images to disk (used in Step 2)
+- Chrome (or any Chromium-family browser: Edge, Arc, Brave, Vivaldi) with DevTools (built-in) — used for impl capture in Step 2
+- `sips` — built-in on macOS; used only on dimension mismatch to resize externally
 - Figma desktop MCP (`mcp__figma-desktop__*`) — **navigation and visual confirmation only**; not used to deliver pixels to peep
 - `$SKILL_DIR/scripts/figma-fetch.sh` — REST helper that downloads a Figma node as PNG. Lives in the peep-rs repo at `$SKILL_DIR/scripts/figma-fetch.sh`.
 - `curl`, `jq` — required by `figma-fetch.sh`
@@ -42,16 +43,41 @@ If `FIGMA_TOKEN` is unset, the script exits 3 with a clear stderr message. Tell 
 
 ### Step 2 — Capture the implementation
 
-Ask the user to take a screenshot of the browser implementation and copy it to the clipboard, then:
+You already have the target dims from Step 1 — the Figma frame's logical size times the `--scale` you fetched at (default 2). Keep those in hand.
 
-```bash
-pngpaste /tmp/impl.png
-```
+Use Chrome's built-in DevTools node screenshot. Pixel-perfect at the page DPR. Works against your already-open tab.
+
+1. Open the page in Chrome at **100% zoom** (Cmd+0). Browser zoom distorts capture scale.
+2. Right-click the target element → **Inspect** (F12 / Cmd+Opt+I).
+3. In the Elements panel, right-click the highlighted DOM node → **Capture node screenshot**.
+4. The PNG saves to `~/Downloads/`. Grab the latest:
+
+   ```bash
+   IMPL=$(ls -t ~/Downloads/*.png | head -1)
+   cp "$IMPL" /tmp/impl.png
+   ```
+
+5. Run peep with TOON output (token-efficient for agent context):
+
+   ```bash
+   peep "$DESIGN" /tmp/impl.png --format toon
+   ```
+
+   - `dims_match: true` (exit 0) → read score, proceed to Step 3.
+   - `dims_match: false` (exit 3) → read the `delta` block. If both `width` and `height` deltas are under ~5% of the design dims, resize externally:
+
+     ```bash
+     sips -z <design.height> <design.width> /tmp/impl.png --out /tmp/impl.png
+     ```
+
+     then rerun peep. If any delta is ≥5%, re-capture rather than distort.
+
+**Full-page capture variant.** If you used "Capture full size screenshot" or "Capture screenshot" (viewport) instead of node-level, the result will rarely match the Figma frame. Either re-fetch the design at a matching `--scale` (`tools/figma-fetch.sh <key> <id> --scale 1` for DPR=1, etc.) or run the `sips` resize on whichever side is bigger.
 
 ### Step 3 — Run comparison
 
 ```bash
-peep /tmp/design.png /tmp/impl.png --json
+peep /tmp/design.png /tmp/impl.png --format toon
 ```
 
 ---
@@ -95,14 +121,14 @@ When the score falls below the threshold, **do not immediately ask the user**. I
 ## CI Path
 
 ```bash
-peep design.png impl.png --threshold 0.99 --fail --json
+peep design.png impl.png --threshold 0.99 --fail --format json
 ```
 
-Exit codes: `0` = pass, `1` = threshold breach, `2` = error.
+Exit codes: `0` = pass, `1` = threshold breach, `2` = error, `3` = dimension mismatch.
 
 Use `--gain` to amplify subtle differences in CI reports:
 ```bash
-peep design.png impl.png --threshold 0.99 --fail --json --gain 8
+peep design.png impl.png --threshold 0.99 --fail --format json --gain 8
 ```
 
 ---
@@ -115,5 +141,5 @@ peep design.png impl.png --threshold 0.99 --fail --json --gain 8
 | `--threshold <f64>` | `0.99` | Minimum acceptable similarity (0 = no match, 1 = identical) |
 | `--gain <f32>` | `4.0` | Diff visibility multiplier — higher values amplify subtle differences |
 | `--fail` | off | Exit with code 1 when score < threshold |
-| `--json` | off | Machine-readable output on stdout |
+| `--format <human\|json\|toon>` | `human` | Output format. `json` / `toon` for machine/agent consumption |
 | `--no-diff` | off | Skip writing the diff image |
