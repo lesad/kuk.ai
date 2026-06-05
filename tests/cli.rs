@@ -334,6 +334,47 @@ fn version_flag_should_exit_0_and_print_crate_version() {
 }
 
 #[test]
+fn identical_pngs_with_format_toon_should_contain_sources_header_and_match() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("design.png");
+    let b = dir.path().join("impl.png");
+    let out = dir.path().join("diff.png");
+
+    write_solid_png(&a, 32, 32, Rgba([10, 20, 30, 255]));
+    write_solid_png(&b, 32, 32, Rgba([10, 20, 30, 255]));
+
+    let output = peep()
+        .arg(&a)
+        .arg(&b)
+        .arg("--output")
+        .arg(&out)
+        .arg("--format")
+        .arg("toon")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let toon = String::from_utf8(output).expect("stdout should be utf-8");
+
+    assert!(
+        toon.contains("sources[2]{label,path,width,height}:"),
+        "expected TOON header, got:\n{toon}"
+    );
+    assert!(toon.contains("dims_match: true"), "got:\n{toon}");
+    assert!(toon.contains("passed: true"), "got:\n{toon}");
+    assert!(
+        toon.lines().any(|l| l.contains("a,") && l.contains("32,32")),
+        "expected `a` row with 32x32, got:\n{toon}"
+    );
+    assert!(
+        toon.lines().any(|l| l.contains("b,") && l.contains("32,32")),
+        "expected `b` row with 32x32, got:\n{toon}"
+    );
+}
+
+#[test]
 fn identical_pngs_with_format_human_should_print_dims_block() {
     let dir = tempdir().expect("tempdir");
     let a = dir.path().join("design.png");

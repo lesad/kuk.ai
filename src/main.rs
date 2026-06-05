@@ -73,10 +73,7 @@ fn print_report(report: &Report, format: OutputFormat) -> Result<(), Box<dyn std
     match format {
         OutputFormat::Human => out.write_all(report.to_human().as_bytes())?,
         OutputFormat::Json => out.write_all(report.to_json()?.as_bytes())?,
-        OutputFormat::Toon => {
-            // Wired up in Task 4. Falls back to JSON for now so the build stays green.
-            out.write_all(report.to_json()?.as_bytes())?;
-        }
+        OutputFormat::Toon => out.write_all(report.to_toon().as_bytes())?,
     }
     Ok(())
 }
