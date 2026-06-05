@@ -93,6 +93,34 @@ impl Report {
         out
     }
 
+    /// Format as TOON (Token-Oriented Object Notation).
+    /// Hand-rolled for our fixed schema. Two-space indent, comma delimiter,
+    /// `[N]` count matches row count. Paths and integers don't need escaping.
+    pub fn to_toon(&self) -> String {
+        let mut out = String::new();
+        out.push_str("sources[2]{label,path,width,height}:\n");
+        out.push_str(&format!(
+            "  a,{},{},{}\n",
+            self.a.path.display(),
+            self.a.width,
+            self.a.height,
+        ));
+        out.push_str(&format!(
+            "  b,{},{},{}\n",
+            self.b.path.display(),
+            self.b.width,
+            self.b.height,
+        ));
+        out.push_str(&format!("dims_match: {}\n", self.dims_match));
+        out.push_str(&format!("score: {:.4}\n", self.score));
+        out.push_str(&format!("threshold: {}\n", self.threshold));
+        out.push_str(&format!("passed: {}\n", self.passed));
+        if let Some(path) = &self.diff_path {
+            out.push_str(&format!("diff_path: {}\n", path.display()));
+        }
+        out
+    }
+
     /// Format as a compact JSON line terminated by `\n`.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         let mut s = serde_json::to_string(self)?;
@@ -293,5 +321,62 @@ mod tests {
         );
 
         assert!(report.passed, "score == threshold should pass (>= semantics)");
+    }
+
+    #[test]
+    fn to_toon_should_emit_sources_array_and_scalars() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("design.png"),
+                width: 1600,
+                height: 1200,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("impl.png"),
+                width: 1600,
+                height: 1200,
+            },
+            dims_match: true,
+            score: 0.9958,
+            threshold: 0.99,
+            passed: true,
+            diff_path: Some(PathBuf::from("diff.png")),
+        };
+
+        let toon = report.to_toon();
+
+        assert!(toon.contains("sources[2]{label,path,width,height}:"));
+        assert!(toon.contains("a,design.png,1600,1200"));
+        assert!(toon.contains("b,impl.png,1600,1200"));
+        assert!(toon.contains("dims_match: true"));
+        assert!(toon.contains("score: 0.9958"));
+        assert!(toon.contains("threshold: 0.99"));
+        assert!(toon.contains("passed: true"));
+        assert!(toon.contains("diff_path: diff.png"));
+        assert!(toon.ends_with('\n'));
+    }
+
+    #[test]
+    fn to_toon_should_omit_diff_path_when_none() {
+        let report = Report {
+            a: ImageInfo {
+                path: PathBuf::from("a.png"),
+                width: 10,
+                height: 10,
+            },
+            b: ImageInfo {
+                path: PathBuf::from("b.png"),
+                width: 10,
+                height: 10,
+            },
+            dims_match: true,
+            score: 1.0,
+            threshold: 0.99,
+            passed: true,
+            diff_path: None,
+        };
+
+        let toon = report.to_toon();
+        assert!(!toon.contains("diff_path:"));
     }
 }
