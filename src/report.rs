@@ -32,6 +32,9 @@ impl Report {
     ///
     /// `design_path` / `impl_path` come from CLI args. `diff_path` is the path that was
     /// written, or `None` if `--no-diff`.
+    //
+    // Invariant: only callable after `compare::run` returns Ok, which guarantees equal
+    // dims. The mismatch path constructs Report (or its equivalent payload) directly.
     pub fn from_compare(
         result: &CompareResult,
         args: &Args,
@@ -65,19 +68,29 @@ impl Report {
             None => "(skipped)".to_string(),
         };
         let match_marker = if self.dims_match { "match" } else { "MISMATCH" };
-        format!(
-            "peep\n  {a_path}  {a_w}x{a_h}\n  {b_path}  {b_w}x{b_h}  {match_marker}\nscore: {score:.4} ({pct:.2}% similar)\ndiff:  {diff_display}\n",
-            a_path = self.a.path.display(),
-            a_w = self.a.width,
-            a_h = self.a.height,
-            b_path = self.b.path.display(),
-            b_w = self.b.width,
-            b_h = self.b.height,
-            match_marker = match_marker,
-            score = self.score,
-            pct = self.score * 100.0,
-            diff_display = diff_display,
-        )
+
+        let mut out = String::new();
+        out.push_str("peep\n");
+        out.push_str(&format!(
+            "  {}  {}x{}\n",
+            self.a.path.display(),
+            self.a.width,
+            self.a.height,
+        ));
+        out.push_str(&format!(
+            "  {}  {}x{}  {}\n",
+            self.b.path.display(),
+            self.b.width,
+            self.b.height,
+            match_marker,
+        ));
+        out.push_str(&format!(
+            "score: {:.4} ({:.2}% similar)\n",
+            self.score,
+            self.score * 100.0,
+        ));
+        out.push_str(&format!("diff:  {}\n", diff_display));
+        out
     }
 
     /// Format as a compact JSON line terminated by `\n`.
@@ -153,7 +166,10 @@ mod tests {
         assert!(output.contains("design.png"));
         assert!(output.contains("impl.png"));
         assert!(output.contains("1600x1200"));
-        assert!(output.contains("match"));
+        assert!(
+            output.contains("1600x1200  match\n"),
+            "expected `match` marker on dims line, got:\n{output}"
+        );
         assert!(output.contains("score: 0.9958"));
         assert!(output.contains("99.58% similar"));
         assert!(output.contains("diff:  diff.png"));
