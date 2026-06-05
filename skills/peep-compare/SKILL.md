@@ -1,6 +1,6 @@
 ---
 name: peep-compare
-description: Use when visually comparing a Figma design against an implementation screenshot using the peep CLI. Uses Figma desktop MCP for navigation and mandatory visual validation, then the REST API (via $SKILL_DIR/scripts/figma-fetch.sh) for the actual PNG download — REST is only called after user confirms the right node. Performs autonomous diff analysis on failure before asking the user.
+description: Use when visually comparing a Figma design against an implementation screenshot using the peep CLI. Uses Figma desktop MCP for navigation and mandatory visual validation, then the REST API (via $SKILL_DIR/scripts/figma-fetch.sh) for the design PNG. Default impl capture is the agent-browser skill — viewport-precise, element-by-CSS-selector, supports CSS injection for diagnostic loops; Chrome DevTools is the manual fallback. Performs autonomous diff analysis on failure before asking the user.
 ---
 
 # Peep Visual Comparison
@@ -11,7 +11,8 @@ This skill compares a Figma design frame against a browser implementation screen
 
 **Required tools:**
 - `peep` — similarity scoring and diff generation
-- Chrome (or any Chromium-family browser: Edge, Arc, Brave, Vivaldi) with DevTools (built-in) — used for impl capture in Step 2
+- `agent-browser` skill — **default impl-capture path** in Step 2. Headless browser with viewport control, element-by-selector screenshots, and CSS injection for diagnostic loops
+- Chrome (or any Chromium-family browser: Edge, Arc, Brave, Vivaldi) with DevTools (built-in) — manual fallback for Step 2 when `agent-browser` can't reach the page (auth walls, MFA, internal-only allowlists)
 - `sips` — built-in on macOS; used only on dimension mismatch to resize externally
 - Figma desktop MCP (`mcp__figma-desktop__*`) — **navigation and visual confirmation only**; not used to deliver pixels to peep
 - `$SKILL_DIR/scripts/figma-fetch.sh` — REST helper that downloads a Figma node as PNG. Lives in the peep-rs repo at `$SKILL_DIR/scripts/figma-fetch.sh`.
@@ -73,9 +74,43 @@ If `FIGMA_TOKEN` is unset, the script exits 3 with a clear stderr message. Tell 
 
 ### Step 2 — Capture the implementation
 
-You already have the target dims from Step 1 — the Figma frame's logical size times the `--scale` you fetched at (default 2). Keep those in hand.
+You already have the target dims from Step 1 — the Figma frame's logical size times the `--scale` you fetched at (default 2). Keep those in hand. Step 2 ends with a PNG at `/tmp/impl.png` and nothing else.
 
-Use Chrome's built-in DevTools node screenshot. Pixel-perfect at the page DPR. Works against your already-open tab.
+Two paths. **Branch A (`agent-browser`) is the default and strongly preferred** — programmable, viewport-precise, element-scoped by CSS selector, and supports CSS injection for diagnostic loops. **Branch B is a manual fallback** for when `agent-browser` can't reach the page (auth wall, MFA, IP allowlist, Electron app, dev environment behind a tunnel that only the user has).
+
+#### Branch A — agent-browser skill (default)
+
+Invoke the `agent-browser` skill. It drives a headless Chromium that you control via CLI. For peep capture you need three things:
+
+1. **Set the viewport** to match the Figma frame's logical size. Example: an 800×600 design fetched at `--scale 2` lands as a 1600×1200 PNG; set the browser viewport to `800×600` and capture at DPR=2, which `agent-browser` does by default.
+2. **Navigate** to the impl URL. If the page needs auth, see if you can pass a session cookie / token; otherwise fall back to Branch B.
+3. **Capture the target element by CSS selector** and write the PNG to `/tmp/impl.png`. The skill returns a real PNG file on disk — no Downloads-folder dance.
+
+Selector tips (in order of preference):
+- `data-testid` attributes — stable across refactors, the project convention if it exists.
+- Semantic roles (`role="navigation"`, `role="button"[name="Save"]`) — survive class renames.
+- Unique IDs (`#user-profile-card`) — fine if the team is disciplined about uniqueness.
+- Avoid auto-generated class hashes (`.css-1a2b3c`, `._abcd_123`) — they break on every build.
+
+##### CSS injection — diagnostic and stabilisation tool
+
+`agent-browser` can inject CSS into the page before capture. Use this for two distinct purposes:
+
+**1. Stabilise the impl before capture** (reduces false-positive diffs):
+- Kill animations + transitions so the capture is deterministic: `* { transition: none !important; animation: none !important; }`
+- Pin draggable / sortable elements to a known position: `.drag-target { transform: none !important; }`
+- Hide loading skeletons that flicker into view: `.skeleton-loader { display: none !important; }`
+
+**2. Bisect a bug** (peep flagged a region, you want to know which delta is causing it):
+- **Hide elements not yet implemented in the design** so they don't dominate the diff: `[data-feature="beta"] { display: none !important; }`. The design doesn't show that button — don't penalise the impl for it.
+- **Try a fix in-place** — inject `padding`, `font-size`, `color` adjustments, re-capture, re-run peep, watch the score move. Faster than rebuilding the app between hypotheses.
+- **Force the suspected state** — e.g. add `.button.hover-state` styles directly so you can compare against a hover-state design without driving real input events.
+
+**Always report any injected CSS to the user** in your final summary. They need to know that the diff score reflects the *tweaked* impl, not what would ship. If the score is only good with three rules of injected CSS, that's three real bugs to file, not a passing test.
+
+#### Branch B — Chrome DevTools (manual fallback)
+
+Use this only when Branch A can't reach the page or when the user explicitly asks for manual capture. Pixel-perfect at the page DPR, works against your already-open tab.
 
 1. Open the page in Chrome at **100% zoom** (Cmd+0). Browser zoom distorts capture scale.
 2. Right-click the target element → **Inspect** (F12 / Cmd+Opt+I).
@@ -87,22 +122,7 @@ Use Chrome's built-in DevTools node screenshot. Pixel-perfect at the page DPR. W
    cp "$IMPL" /tmp/impl.png
    ```
 
-5. Run peep with TOON output (token-efficient for agent context):
-
-   ```bash
-   peep "$DESIGN" /tmp/impl.png --format toon
-   ```
-
-   - `dims_match: true` (exit 0) → read score, proceed to Step 3.
-   - `dims_match: false` (exit 3) → read the `delta` block. If both `width` and `height` deltas are under ~5% of the design dims, resize externally:
-
-     ```bash
-     sips -z <design.height> <design.width> /tmp/impl.png --out /tmp/impl.png
-     ```
-
-     then rerun peep. If any delta is ≥5%, re-capture rather than distort.
-
-**Full-page capture variant.** If you used "Capture full size screenshot" or "Capture screenshot" (viewport) instead of node-level, the result will rarely match the Figma frame. Either re-fetch the design at a matching `--scale` (`tools/figma-fetch.sh <key> <id> --scale 1` for DPR=1, etc.) or run the `sips` resize on whichever side is bigger.
+**Full-page capture variant.** If you used "Capture full size screenshot" or "Capture screenshot" (viewport) instead of node-level, the result will rarely match the Figma frame. Either re-fetch the design at a matching `--scale` (`tools/figma-fetch.sh <key> <id> --scale 1` for DPR=1, etc.) or run the `sips` resize on whichever side is bigger after Step 3 reports `dims_match: false`.
 
 ### Step 2.5 — Pre-flight sanity check (smoke test)
 
