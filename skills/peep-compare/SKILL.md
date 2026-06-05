@@ -54,11 +54,18 @@ This is the strongly preferred path. Use MCP for everything until the target nod
 
 #### Branch B — Figma desktop MCP is NOT available
 
-If `mcp__figma-desktop__*` tools aren't loaded (no Figma desktop running, MCP server not reachable, etc.), you cannot pre-validate visually. Proceed cautiously:
+If `mcp__figma-desktop__*` tools aren't loaded (no Figma desktop running, MCP server not reachable, etc.), you can't pre-validate visually. Proceed in best-effort mode — each REST call burns one Tier-1 slot, but blind is still better than refusing.
 
 1. Same URL parsing as Branch A step 1.
-2. **If the user gave a frame name instead of a nodeId, STOP** and ask the user to open Figma and copy the node-id from the URL bar (right-click frame → Copy link). Do not guess — wrong fetches cost REST quota.
-3. With an unambiguous `<fileKey>, <nodeId>` pair, call the REST helper as in Branch A step 5.
+2. **Best case** — the URL already contains `?node-id=N-M`. Skip to step 4 with the unambiguous `<fileKey>, <nodeId>` pair.
+3. **If only a frame name was given:**
+   - First, ask the user to right-click the frame in Figma → **Copy link**, then paste the URL back. That gives you the node-id for free (no REST cost).
+   - If the user can't or won't, accept the name as a best-effort guess. **Restate your interpretation** ("I'll fetch the frame named 'X' from file `<fileKey>` — confirm?") before calling REST so the user can correct you up-front. This shifts the blind spot from MCP-screenshot to natural-language confirmation; not as safe but acceptable.
+4. **Call the REST helper** (same as Branch A step 5):
+   ```bash
+   DESIGN=$($SKILL_DIR/scripts/figma-fetch.sh "$FILE_KEY" "$NODE_ID")
+   ```
+   If the resulting PNG looks obviously wrong (zero bytes, blank square, dimensions don't match the user's description), report it back and ask for clarification before retrying. **Do not loop blindly** — one wrong fetch is recoverable, ten wrong fetches drain the budget for the session.
 
 #### Common — token errors
 
