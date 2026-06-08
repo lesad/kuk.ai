@@ -51,7 +51,7 @@ On dimension mismatch (exit 3), the same format conventions apply: `human` print
 
 ## Skill
 
-`skills/peep-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: it uses the Figma desktop MCP to locate the right node, then calls `skills/peep-compare/scripts/figma-fetch.sh` to download the design PNG via the Figma REST API, then runs `peep` against an implementation screenshot.
+`skills/peep-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: Figma desktop MCP is **required** — the skill gates on both MCP tools being loaded and the correct file being open before any REST call. It uses MCP to navigate and visually confirm the target node, then calls `skills/peep-compare/scripts/figma-fetch.sh` to download the design PNG at `--scale 2` (Figma default), then captures the implementation via `agent-browser` at DPR=2 and runs `peep`.
 
 Enable globally (one-time):
 
@@ -69,7 +69,7 @@ DESIGN=$(skills/peep-compare/scripts/figma-fetch.sh <fileKey> <nodeId>)
 peep "$DESIGN" impl.png --format toon
 ```
 
-Flags: `--scale N` (0.01–4.0, default `2`), `--format png|jpg|svg|pdf` (default `png`), `--absolute|--no-absolute` (sets `use_absolute_bounds`, default on), `--out PATH|-` (default: auto-generated path under `$TMPDIR`; `-` streams bytes to stdout).
+Flags: `--scale N` (0.01–4.0, default `2` — the skill always uses the default), `--format png|jpg|svg|pdf` (default `png`), `--absolute|--no-absolute` (sets `use_absolute_bounds`, default on), `--out PATH|-` (default: auto-generated path under `$TMPDIR`; `-` streams bytes to stdout).
 
 ## License
 

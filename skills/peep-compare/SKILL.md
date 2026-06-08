@@ -13,7 +13,7 @@ This skill compares a Figma design frame against a browser implementation screen
 - `peep` — similarity scoring and diff generation
 - `agent-browser` skill — **default impl-capture path** in Step 2. Headless browser with viewport control, element-by-selector screenshots, and CSS injection for diagnostic loops
 - Chrome (or any Chromium-family browser: Edge, Arc, Brave, Vivaldi) with DevTools (built-in) — manual fallback for Step 2 when `agent-browser` can't reach the page (auth walls, MFA, internal-only allowlists)
-- `sips` — built-in on macOS; used only on dimension mismatch to resize externally
+- `sips` — built-in on macOS; last resort for known-margin crop (`sips -c`) only; never `sips -z` (resize distorts pixel-accurate comparison)
 - Figma desktop MCP (`mcp__figma-desktop__*`) — **navigation and visual confirmation only**; not used to deliver pixels to peep
 - `$SKILL_DIR/scripts/figma-fetch.sh` — REST helper that downloads a Figma node as PNG. Lives in the peep-rs repo at `$SKILL_DIR/scripts/figma-fetch.sh`.
 - `curl`, `jq` — required by `figma-fetch.sh`
@@ -27,11 +27,15 @@ This skill compares a Figma design frame against a browser implementation screen
 
 ### Step 1 — Capture the design (MCP navigation + REST fetch)
 
-The design capture is a hybrid: cheap Figma desktop MCP for navigation **and validation**, then a one-shot REST call for the bytes. The REST call is the single moment we burn API quota — never make it speculatively.
+The design capture is a hybrid: Figma desktop MCP for navigation **and visual confirmation**, then a one-shot REST call for the bytes. The REST call burns Tier-1 API quota — never call it speculatively, and **never before the correct node is visually confirmed via MCP**.
 
-#### Branch A — Figma desktop MCP is available (`mcp__figma-desktop__*` tools loaded)
+> **Prerequisites — verify before doing anything else:**
+> 1. Confirm `mcp__figma-desktop__*` tools are loaded. If not → **stop**: "Open Figma desktop and ensure the MCP server is running."
+> 2. Call `mcp__figma-desktop__get_metadata` with the target `fileKey` (no `nodeId` — file root is enough). If it fails or returns a different file → **stop**: "Open file `<fileKey>` in Figma desktop, then retry."
+>
+> Both checks must pass. MCP is **required** — there is no fallback REST-only path.
 
-This is the strongly preferred path. Use MCP for everything until the target node is **visually confirmed** by the user; only then call REST.
+Use MCP for everything until the target node is **visually confirmed** by the user; only then call REST.
 
 1. **Get the Figma URL** from the user. Parse `fileKey` and the `node-id` query param. URL format: `https://www.figma.com/design/<fileKey>/<name>?node-id=1-2`. If the URL is the `branch` form (`/design/<fileKey>/branch/<branchKey>/<name>`), use the `branchKey` as the fileKey for the API call.
 
@@ -51,42 +55,60 @@ This is the strongly preferred path. Use MCP for everything until the target nod
    ```bash
    DESIGN=$($SKILL_DIR/scripts/figma-fetch.sh "$FILE_KEY" "$NODE_ID")
    ```
-   The script writes to `${TMPDIR:-/tmp}/figma-<fileKey>-<nodeId>-2x.png` by default and prints the path on stdout. Use `--scale N`, `--format png|jpg|svg`, `--no-absolute`, or `--out PATH` for non-default behavior. Re-running with the same args overwrites the same path — that's the design's stable identifier.
+   The script writes to `${TMPDIR:-/tmp}/figma-<fileKey>-<nodeId>-2x.png` and prints the path on stdout. Always use the default scale (2) — it is the Figma export default and matches DPR=2 in agent-browser. Use `--format png|jpg|svg`, `--no-absolute`, or `--out PATH` for non-default behavior. Re-running with the same args overwrites the same path — that's the design's stable identifier.
 
-#### Branch B — Figma desktop MCP is NOT available
-
-If `mcp__figma-desktop__*` tools aren't loaded (no Figma desktop running, MCP server not reachable, etc.), you can't pre-validate visually. Proceed in best-effort mode — each REST call burns one Tier-1 slot, but blind is still better than refusing.
-
-1. Same URL parsing as Branch A step 1.
-2. **Best case** — the URL already contains `?node-id=N-M`. Skip to step 4 with the unambiguous `<fileKey>, <nodeId>` pair.
-3. **If only a frame name was given:**
-   - First, ask the user to right-click the frame in Figma → **Copy link**, then paste the URL back. That gives you the node-id for free (no REST cost).
-   - If the user can't or won't, accept the name as a best-effort guess. **Restate your interpretation** ("I'll fetch the frame named 'X' from file `<fileKey>` — confirm?") before calling REST so the user can correct you up-front. This shifts the blind spot from MCP-screenshot to natural-language confirmation; not as safe but acceptable.
-4. **Call the REST helper** (same as Branch A step 5):
-   ```bash
-   DESIGN=$($SKILL_DIR/scripts/figma-fetch.sh "$FILE_KEY" "$NODE_ID")
-   ```
-   If the resulting PNG looks obviously wrong (zero bytes, blank square, dimensions don't match the user's description), report it back and ask for clarification before retrying. **Do not loop blindly** — one wrong fetch is recoverable, ten wrong fetches drain the budget for the session.
+   **Render timeout** — if `figma-fetch.sh` returns `{"status":400,"err":"Render timeout"}`:
+   1. Call `mcp__figma-desktop__get_metadata` on the target node, pick a logical child (e.g. the content frame, not the outer wrapper), retry `figma-fetch.sh` with that child ID.
+   2. If all sub-nodes also timeout → ask the user to manually export from Figma desktop (right-click → Export → PNG 2×) and place the file at `/tmp/design.png`.
+   3. Do **not** retry the same node at different scales — a complex frame times out at both scale 1 and scale 2.
 
 #### Common — token errors
 
 If `FIGMA_TOKEN` is unset, the script exits 3 with a clear stderr message. Tell the user to generate one at <https://www.figma.com/settings> (Security → Personal access tokens → scope `File content: Read`) and export it as `FIGMA_TOKEN`. Then re-run.
 
+To verify a token before fetching — a `file_content:read`-scoped token returns 403 on `/v1/me`; use the file-node endpoint instead:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}" \
+  -H "X-Figma-Token: $FIGMA_TOKEN" \
+  "https://api.figma.com/v1/files/<fileKey>/nodes?ids=0:1"
+# 200 = valid; 403 = wrong token or missing file_content:read scope
+```
+
 ### Step 2 — Capture the implementation
 
-You already have the target dims from Step 1 — the Figma frame's logical size times the `--scale` you fetched at (default 2). Keep those in hand. Step 2 ends with a PNG at `/tmp/impl.png` and nothing else.
+Always fetch the design at `--scale 2` (Figma default). The impl capture must match: DPR=2 in agent-browser, or node screenshot on a retina display in Branch B. Step 2 ends with a PNG at `/tmp/impl.png` and nothing else.
 
 Two paths. **Branch A (`agent-browser`) is the default and strongly preferred** — programmable, viewport-precise, element-scoped by CSS selector, and supports CSS injection for diagnostic loops. **Branch B is a manual fallback** for when `agent-browser` can't reach the page (auth wall, MFA, IP allowlist, Electron app, dev environment behind a tunnel that only the user has).
 
 #### Branch A — agent-browser skill (default)
 
-Invoke the `agent-browser` skill. It drives a headless Chromium that you control via CLI. For peep capture you need three things:
+Invoke the `agent-browser` skill. Copy-paste capture sequence:
 
-1. **Set the viewport** to match the Figma frame's logical size. Example: an 800×600 design fetched at `--scale 2` lands as a 1600×1200 PNG; set the browser viewport to `800×600` and capture at DPR=2, which `agent-browser` does by default.
-2. **Navigate** to the impl URL. If the page needs auth, see if you can pass a session cookie / token; otherwise fall back to Branch B.
-3. **Capture the target element by CSS selector** and write the PNG to `/tmp/impl.png`. The skill returns a real PNG file on disk — no Downloads-folder dance.
+```bash
+# 1. Set viewport before navigating — DPR=2 matches Figma's default --scale 2 export
+#    CSS layout stays at W×H; screenshots render at W×2 pixels wide
+#    Width matters for layout; height can be loose (element capture clips to content height)
+agent-browser set viewport <FigmaLogicalWidth> 960 2
 
-Selector tips (in order of preference):
+# 2. Navigate (if auth needed, run `agent-browser auth login` first)
+agent-browser open <impl-url>
+agent-browser wait --load networkidle
+
+# 3. Kill animations — use --stdin heredoc to avoid shell quoting issues
+agent-browser eval --stdin <<'EVALEOF'
+const s = document.createElement("style");
+s.textContent = "* { transition: none !important; animation: none !important; }";
+document.head.appendChild(s);
+EVALEOF
+
+# 4. Capture element directly — output pixel dims = logical dims × DPR; no full-page + crop needed
+agent-browser screenshot "[data-testid='target-element']" /tmp/impl.png
+```
+
+If the page needs auth and `agent-browser auth login` doesn't cover it, fall back to Branch B.
+
+Selector preference (most to least stable):
 - `data-testid` attributes — stable across refactors, the project convention if it exists.
 - Semantic roles (`role="navigation"`, `role="button"[name="Save"]`) — survive class renames.
 - Unique IDs (`#user-profile-card`) — fine if the team is disciplined about uniqueness.
@@ -122,7 +144,7 @@ Use this only when Branch A can't reach the page or when the user explicitly ask
    cp "$IMPL" /tmp/impl.png
    ```
 
-**Full-page capture variant.** If you used "Capture full size screenshot" or "Capture screenshot" (viewport) instead of node-level, the result will rarely match the Figma frame. Either re-fetch the design at a matching `--scale` (`tools/figma-fetch.sh <key> <id> --scale 1` for DPR=1, etc.) or run the `sips` resize on whichever side is bigger after Step 3 reports `dims_match: false`.
+**Full-page capture variant.** If you used "Capture full size screenshot" or "Capture screenshot" (viewport) instead of node-level, re-capture using "Capture node screenshot" — it renders at the page DPR and on a retina display matches the `--scale 2` design fetch. Do not use `sips -z` to resize either side.
 
 ### Step 2.5 — Pre-flight sanity check (smoke test)
 
@@ -146,8 +168,10 @@ Then use the **Read** tool on each path. Vision-inspect for obvious smell tests 
 
 **Decision:**
 
-- **All sanity checks pass** → proceed to Step 3 (run peep).
+- **All sanity checks pass** → proceed to Step 3 (run peep). Do not manually verify image dimensions — peep reports dimension mismatches via exit code 3.
 - **One or more red flags** → STOP. Do not run peep. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. Peep would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
+
+**If peep exits with code 3 (dimension mismatch):** fix via `agent-browser set viewport` width adjustment and/or CSS `width` override on the element — re-capture, re-run. Do **not** use `sips -z` (resize/scale — distorts the image and defeats pixel-accurate comparison). `sips -c H W` (crop only) is a last resort only after confirming the overflow is a known extra margin, not a real visual bug. A height mismatch that isn't from a known CSS overflow is a real finding — report it, don't hide it by cropping.
 
 This step is cheap (two image reads) and saves cycles when the human-loop part of the workflow has gone off the rails.
 
