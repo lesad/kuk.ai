@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use thiserror::Error;
 
-/// All errors that can occur in the peep CLI.
+/// All errors that can occur in the kuk CLI.
 #[derive(Debug, Error)]
 pub enum PeepError {
     /// Failed to open or decode an input image.

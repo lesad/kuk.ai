@@ -15,7 +15,7 @@ pub enum OutputFormat {
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "peep",
+    name = "kuk",
     version,
     about = "Compare two webpage screenshots and emit a similarity score + red-overlay diff PNG"
 )]
@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn all_defaults_should_be_set_correctly() {
-        let args = Args::try_parse_from(["peep", "a.png", "b.png"]).expect("parse should succeed");
+        let args = Args::try_parse_from(["kuk", "a.png", "b.png"]).expect("parse should succeed");
 
         assert_eq!(args.design, PathBuf::from("a.png"));
         assert_eq!(args.implementation, PathBuf::from("b.png"));
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn all_flags_overridden_should_reflect_new_values() {
         let args = Args::try_parse_from([
-            "peep",
+            "kuk",
             "a.png",
             "b.png",
             "--output",
@@ -105,20 +105,20 @@ mod tests {
 
     #[test]
     fn format_toon_should_parse() {
-        let args = Args::try_parse_from(["peep", "a.png", "b.png", "--format", "toon"])
+        let args = Args::try_parse_from(["kuk", "a.png", "b.png", "--format", "toon"])
             .expect("parse should succeed");
         assert_eq!(args.format, OutputFormat::Toon);
     }
 
     #[test]
     fn format_uppercase_should_be_rejected() {
-        let result = Args::try_parse_from(["peep", "a.png", "b.png", "--format", "JSON"]);
+        let result = Args::try_parse_from(["kuk", "a.png", "b.png", "--format", "JSON"]);
         assert!(result.is_err(), "uppercase format values must be rejected");
     }
 
     #[test]
     fn missing_implementation_argument_should_error() {
-        let result = Args::try_parse_from(["peep", "a.png"]);
+        let result = Args::try_parse_from(["kuk", "a.png"]);
         assert!(result.is_err(), "expected parse error when IMPL is missing");
     }
 }

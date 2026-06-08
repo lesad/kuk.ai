@@ -35,8 +35,8 @@ fn write_png_with_diff_block(
         .expect("write fixture PNG");
 }
 
-fn peep() -> Command {
-    Command::cargo_bin("peep").expect("peep binary not found")
+fn kuk() -> Command {
+    Command::cargo_bin("kuk").expect("kuk binary not found")
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ fn identical_pngs_should_exit_0_and_score_near_1_and_write_diff() {
     write_solid_png(&a, 32, 32, Rgba([255, 0, 0, 255]));
     write_solid_png(&b, 32, 32, Rgba([255, 0, 0, 255]));
 
-    peep()
+    kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -75,7 +75,7 @@ fn identical_pngs_with_format_json_should_produce_valid_json_with_a_b_blocks() {
     write_solid_png(&a, 32, 32, Rgba([255, 0, 0, 255]));
     write_solid_png(&b, 32, 32, Rgba([255, 0, 0, 255]));
 
-    let output = peep()
+    let output = kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -135,7 +135,7 @@ fn different_pngs_without_fail_flag_should_exit_0_with_score_below_threshold() {
         16,
     );
 
-    let output = peep()
+    let output = kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -182,7 +182,7 @@ fn different_pngs_with_fail_and_threshold_should_exit_1() {
         16,
     );
 
-    peep()
+    kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -213,7 +213,7 @@ fn different_pngs_with_fail_and_json_should_exit_1_with_passed_false() {
         16,
     );
 
-    let output = peep()
+    let output = kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -249,7 +249,7 @@ fn no_diff_flag_should_not_write_diff_file_and_stdout_shows_skipped() {
     write_solid_png(&a, 32, 32, Rgba([0, 128, 255, 255]));
     write_solid_png(&b, 32, 32, Rgba([0, 128, 255, 255]));
 
-    peep()
+    kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -273,7 +273,7 @@ fn missing_input_file_should_exit_2_with_error_on_stderr() {
 
     write_solid_png(&other, 4, 4, Rgba([0, 0, 0, 255]));
 
-    peep()
+    kuk()
         .arg(&missing)
         .arg(&other)
         .assert()
@@ -293,7 +293,7 @@ fn dimension_mismatch_human_should_exit_3_with_dims_on_stdout() {
     write_solid_png(&a, 4, 4, Rgba([255, 0, 0, 255]));
     write_solid_png(&b, 8, 8, Rgba([0, 255, 0, 255]));
 
-    peep()
+    kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -313,7 +313,7 @@ fn dimension_mismatch_human_should_exit_3_with_dims_on_stdout() {
 
 #[test]
 fn help_flag_should_exit_0_and_show_all_flags() {
-    peep()
+    kuk()
         .arg("--help")
         .assert()
         .success()
@@ -331,7 +331,7 @@ fn help_flag_should_exit_0_and_show_all_flags() {
 
 #[test]
 fn version_flag_should_exit_0_and_print_crate_version() {
-    peep()
+    kuk()
         .arg("--version")
         .assert()
         .success()
@@ -348,7 +348,7 @@ fn identical_pngs_with_format_toon_should_contain_sources_header_and_match() {
     write_solid_png(&a, 32, 32, Rgba([10, 20, 30, 255]));
     write_solid_png(&b, 32, 32, Rgba([10, 20, 30, 255]));
 
-    let output = peep()
+    let output = kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -389,7 +389,7 @@ fn dimension_mismatch_format_json_should_exit_3_with_structured_payload() {
     write_solid_png(&a, 4, 4, Rgba([255, 0, 0, 255]));
     write_solid_png(&b, 8, 8, Rgba([0, 255, 0, 255]));
 
-    let output = peep()
+    let output = kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -427,7 +427,7 @@ fn dimension_mismatch_format_toon_should_exit_3_with_structured_payload() {
     write_solid_png(&a, 4, 4, Rgba([255, 0, 0, 255]));
     write_solid_png(&b, 8, 8, Rgba([0, 255, 0, 255]));
 
-    let output = peep()
+    let output = kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")
@@ -463,7 +463,7 @@ fn identical_pngs_with_format_human_should_print_dims_block() {
     write_solid_png(&a, 32, 32, Rgba([0, 0, 255, 255]));
     write_solid_png(&b, 32, 32, Rgba([0, 0, 255, 255]));
 
-    peep()
+    kuk()
         .arg(&a)
         .arg(&b)
         .arg("--output")

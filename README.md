@@ -1,4 +1,4 @@
-# peep-rs
+# kuk.ai
 
 ```
   _ __     .---.    .---.    _ __        _ __ ___
@@ -17,12 +17,12 @@ with anti-aliased text.
 
 ## Status
 
-v0.2.0 — output format selector (`--format human|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
+v0.2.0 — renamed from `peep` to `kuk` (name conflict). Output format selector (`--format human|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
 
 ## Usage
 
 ```sh
-peep design.png impl.png
+kuk design.png impl.png
 # peep
 #   design.png  1600x1200
 #   impl.png    1600x1200  match
@@ -51,12 +51,12 @@ On dimension mismatch (exit 3), the same format conventions apply: `human` print
 
 ## Skill
 
-`skills/peep-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: Figma desktop MCP is **required** — the skill gates on both MCP tools being loaded and the correct file being open before any REST call. It uses MCP to navigate and visually confirm the target node, then calls `skills/peep-compare/scripts/figma-fetch.sh` to download the design PNG at `--scale 2` (Figma default), then captures the implementation via `agent-browser` at DPR=2 and runs `peep`.
+`skills/kuk-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: Figma desktop MCP is **required** — the skill gates on both MCP tools being loaded and the correct file being open before any REST call. It uses MCP to navigate and visually confirm the target node, then calls `skills/kuk-compare/scripts/figma-fetch.sh` to download the design PNG at `--scale 2` (Figma default), then captures the implementation via `agent-browser` at DPR=2 and runs `peep`.
 
 Enable globally (one-time):
 
 ```sh
-ln -s "$PWD/skills/peep-compare" ~/.claude/skills/peep-compare
+ln -s "$PWD/skills/kuk-compare" ~/.claude/skills/kuk-compare
 ```
 
 Requirements: `FIGMA_TOKEN` env var (scope **File content: Read**, get one at <https://www.figma.com/settings>), plus `curl` and `jq`.
@@ -65,7 +65,7 @@ Requirements: `FIGMA_TOKEN` env var (scope **File content: Read**, get one at <h
 
 ```sh
 export FIGMA_TOKEN=figd_...
-DESIGN=$(skills/peep-compare/scripts/figma-fetch.sh <fileKey> <nodeId>)
+DESIGN=$(skills/kuk-compare/scripts/figma-fetch.sh <fileKey> <nodeId>)
 peep "$DESIGN" impl.png --format toon
 ```
 

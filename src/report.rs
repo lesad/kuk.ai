@@ -91,7 +91,7 @@ impl Report {
         let match_marker = if self.dims_match { "match" } else { "MISMATCH" };
 
         let mut out = String::new();
-        out.push_str("peep\n");
+        out.push_str("kuk\n");
         out.push_str(&format!(
             "  {}  {}x{}\n",
             self.a.path.display(),
@@ -162,7 +162,7 @@ mod tests {
 
     fn make_args(threshold: f64, no_diff: bool) -> Args {
         use clap::Parser;
-        let mut args = Args::parse_from(["peep", "a.png", "b.png"]);
+        let mut args = Args::parse_from(["kuk", "a.png", "b.png"]);
         args.threshold = threshold;
         args.no_diff = no_diff;
         args

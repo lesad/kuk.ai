@@ -51,7 +51,7 @@ fn print_mismatch(
     let dh = bh as i64 - ah as i64;
     match format {
         OutputFormat::Human => {
-            writeln!(out, "peep: dimension mismatch")?;
+            writeln!(out, "kuk: dimension mismatch")?;
             writeln!(out, "  {}  {}x{}", design_path.display(), aw, ah)?;
             writeln!(
                 out,

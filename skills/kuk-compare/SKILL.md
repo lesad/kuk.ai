@@ -1,25 +1,25 @@
 ---
-name: peep-compare
-description: Use when visually comparing a Figma design against an implementation screenshot using the peep CLI. Uses Figma desktop MCP for navigation and mandatory visual validation, then the REST API (via $SKILL_DIR/scripts/figma-fetch.sh) for the design PNG. Default impl capture is the agent-browser skill — viewport-precise, element-by-CSS-selector, supports CSS injection for diagnostic loops; Chrome DevTools is the manual fallback. Performs autonomous diff analysis on failure before asking the user.
+name: kuk-compare
+description: Use when visually comparing a Figma design against an implementation screenshot using the kuk CLI. Uses Figma desktop MCP for navigation and mandatory visual validation, then the REST API (via $SKILL_DIR/scripts/figma-fetch.sh) for the design PNG. Default impl capture is the agent-browser skill — viewport-precise, element-by-CSS-selector, supports CSS injection for diagnostic loops; Chrome DevTools is the manual fallback. Performs autonomous diff analysis on failure before asking the user.
 ---
 
 # Peep Visual Comparison
 
 ## Overview
 
-This skill compares a Figma design frame against a browser implementation screenshot using the `peep` CLI. It produces a similarity score and a red-overlay diff image. On failure, Claude analyzes the diff autonomously and only asks the user when the findings are ambiguous.
+This skill compares a Figma design frame against a browser implementation screenshot using the `kuk` CLI. It produces a similarity score and a red-overlay diff image. On failure, Claude analyzes the diff autonomously and only asks the user when the findings are ambiguous.
 
 **Required tools:**
 - `peep` — similarity scoring and diff generation
 - `agent-browser` skill — **default impl-capture path** in Step 2. Headless browser with viewport control, element-by-selector screenshots, and CSS injection for diagnostic loops
 - Chrome (or any Chromium-family browser: Edge, Arc, Brave, Vivaldi) with DevTools (built-in) — manual fallback for Step 2 when `agent-browser` can't reach the page (auth walls, MFA, internal-only allowlists)
 - `sips` — built-in on macOS; last resort for known-margin crop (`sips -c`) only; never `sips -z` (resize distorts pixel-accurate comparison)
-- Figma desktop MCP (`mcp__figma-desktop__*`) — **navigation and visual confirmation only**; not used to deliver pixels to peep
-- `$SKILL_DIR/scripts/figma-fetch.sh` — REST helper that downloads a Figma node as PNG. Lives in the peep-rs repo at `$SKILL_DIR/scripts/figma-fetch.sh`.
+- Figma desktop MCP (`mcp__figma-desktop__*`) — **navigation and visual confirmation only**; not used to deliver pixels to kuk
+- `$SKILL_DIR/scripts/figma-fetch.sh` — REST helper that downloads a Figma node as PNG. Lives in the kuk.ai repo at `$SKILL_DIR/scripts/figma-fetch.sh`.
 - `curl`, `jq` — required by `figma-fetch.sh`
 - `FIGMA_TOKEN` env var — Figma personal access token with `file_content:read` scope. Set once: `set -Ux FIGMA_TOKEN figd_...` (fish) or export in your shell rc.
 
-> **Note — MCP image content blocks are vision-only.** Calling `mcp__figma-desktop__get_screenshot` returns a rendered image that the assistant can *see*, but the underlying base64 is not exposed as text and is not cached to disk. Do not attempt to forward MCP image bytes to peep — always use `$SKILL_DIR/scripts/figma-fetch.sh` for the actual capture.
+> **Note — MCP image content blocks are vision-only.** Calling `mcp__figma-desktop__get_screenshot` returns a rendered image that the assistant can *see*, but the underlying base64 is not exposed as text and is not cached to disk. Do not attempt to forward MCP image bytes to kuk — always use `$SKILL_DIR/scripts/figma-fetch.sh` for the actual capture.
 
 ---
 
@@ -43,7 +43,7 @@ Use MCP for everything until the target node is **visually confirmed** by the us
    - Call `mcp__figma-desktop__get_metadata` with the page id (or no nodeId to list pages) and walk the returned XML tree to find the node whose `name` matches what the user asked for. The MCP rate budget is independent of REST, so multiple discovery calls are free.
 
 3. **Mandatory visual confirm via MCP — do NOT skip:**
-   - Call `mcp__figma-desktop__get_screenshot` with the candidate nodeId. The returned image is for *your* visual inspection — it never becomes the peep input (base64 is not extractable from MCP image content blocks).
+   - Call `mcp__figma-desktop__get_screenshot` with the candidate nodeId. The returned image is for *your* visual inspection — it never becomes the kuk input (base64 is not extractable from MCP image content blocks).
    - Show the user what you see and ask: "is this the right frame?" Be explicit about node name and id.
    - **If the user says NO (or the user disagrees with your interpretation):** go to step 4. Do NOT proceed to REST. Each wrong REST call burns Tier-1 quota (~10–20 req/min) and produces a useless PNG.
 
@@ -125,7 +125,7 @@ Selector preference (most to least stable):
 
 **2. Bisect a bug** (peep flagged a region, you want to know which delta is causing it):
 - **Hide elements not yet implemented in the design** so they don't dominate the diff: `[data-feature="beta"] { display: none !important; }`. The design doesn't show that button — don't penalise the impl for it.
-- **Try a fix in-place** — inject `padding`, `font-size`, `color` adjustments, re-capture, re-run peep, watch the score move. Faster than rebuilding the app between hypotheses.
+- **Try a fix in-place** — inject `padding`, `font-size`, `color` adjustments, re-capture, re-run kuk, watch the score move. Faster than rebuilding the app between hypotheses.
 - **Force the suspected state** — e.g. add `.button.hover-state` styles directly so you can compare against a hover-state design without driving real input events.
 
 **Always report any injected CSS to the user** in your final summary. They need to know that the diff score reflects the *tweaked* impl, not what would ship. If the score is only good with three rules of injected CSS, that's three real bugs to file, not a passing test.
@@ -148,7 +148,7 @@ Use this only when Branch A can't reach the page or when the user explicitly ask
 
 ### Step 2.5 — Pre-flight sanity check (smoke test)
 
-Before invoking peep, eyeball both inputs yourself. Peep computes MSSIM + chroma diff, which is wasted compute when the two images are obviously of different content. Catch wildly-wrong impl captures up-front so you can re-capture rather than report a near-zero score.
+Before invoking kuk, eyeball both inputs yourself. kuk computes MSSIM + chroma diff, which is wasted compute when the two images are obviously of different content. Catch wildly-wrong impl captures up-front so you can re-capture rather than report a near-zero score.
 
 Read both PNGs into your vision context:
 
@@ -168,8 +168,8 @@ Then use the **Read** tool on each path. Vision-inspect for obvious smell tests 
 
 **Decision:**
 
-- **All sanity checks pass** → proceed to Step 3 (run peep). Do not manually verify image dimensions — peep reports dimension mismatches via exit code 3.
-- **One or more red flags** → STOP. Do not run peep. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. Peep would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
+- **All sanity checks pass** → proceed to Step 3 (run kuk). Do not manually verify image dimensions — peep reports dimension mismatches via exit code 3.
+- **One or more red flags** → STOP. Do not run kuk. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. Peep would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
 
 **If peep exits with code 3 (dimension mismatch):** fix via `agent-browser set viewport` width adjustment and/or CSS `width` override on the element — re-capture, re-run. Do **not** use `sips -z` (resize/scale — distorts the image and defeats pixel-accurate comparison). `sips -c H W` (crop only) is a last resort only after confirming the overflow is a known extra margin, not a real visual bug. A height mismatch that isn't from a known CSS overflow is a real finding — report it, don't hide it by cropping.
 
@@ -178,7 +178,7 @@ This step is cheap (two image reads) and saves cycles when the human-loop part o
 ### Step 3 — Run comparison
 
 ```bash
-peep /tmp/design.png /tmp/impl.png --format toon
+kuk /tmp/design.png /tmp/impl.png --format toon
 ```
 
 ---
@@ -222,14 +222,14 @@ When the score falls below the threshold, **do not immediately ask the user**. I
 ## CI Path
 
 ```bash
-peep design.png impl.png --threshold 0.99 --fail --format json
+kuk design.png impl.png --threshold 0.99 --fail --format json
 ```
 
 Exit codes: `0` = pass, `1` = threshold breach, `2` = error, `3` = dimension mismatch.
 
 Use `--gain` to amplify subtle differences in CI reports:
 ```bash
-peep design.png impl.png --threshold 0.99 --fail --format json --gain 8
+kuk design.png impl.png --threshold 0.99 --fail --format json --gain 8
 ```
 
 ---
