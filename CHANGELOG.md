@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-08
+
 ### Changed
 
 - Renamed project from `peep` / `peep-rs` to `kuk` / `kuk.ai` — name conflict with an existing vendor. Binary: `peep` → `kuk`. Crate: `peep-rs` → `kuk-ai`. Repo: `lesad/peep-rs` → `lesad/kuk.ai`. Skill: `peep-compare` → `kuk-compare`.
@@ -51,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable similarity threshold via `--threshold` flag
 - Exit code reflects pass/fail based on threshold
 
-[Unreleased]: https://github.com/lesad/kuk.ai/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/lesad/kuk.ai/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.3.0
 [0.2.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.2.0
 [0.1.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.1.0
