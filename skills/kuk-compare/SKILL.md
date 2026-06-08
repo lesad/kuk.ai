@@ -10,7 +10,7 @@ description: Use when visually comparing a Figma design against an implementatio
 This skill compares a Figma design frame against a browser implementation screenshot using the `kuk` CLI. It produces a similarity score and a red-overlay diff image. On failure, Claude analyzes the diff autonomously and only asks the user when the findings are ambiguous.
 
 **Required tools:**
-- `peep` — similarity scoring and diff generation
+- `kuk` — similarity scoring and diff generation
 - `agent-browser` skill — **default impl-capture path** in Step 2. Headless browser with viewport control, element-by-selector screenshots, and CSS injection for diagnostic loops
 - Chrome (or any Chromium-family browser: Edge, Arc, Brave, Vivaldi) with DevTools (built-in) — manual fallback for Step 2 when `agent-browser` can't reach the page (auth walls, MFA, internal-only allowlists)
 - `sips` — built-in on macOS; last resort for known-margin crop (`sips -c`) only; never `sips -z` (resize distorts pixel-accurate comparison)
@@ -123,7 +123,7 @@ Selector preference (most to least stable):
 - Pin draggable / sortable elements to a known position: `.drag-target { transform: none !important; }`
 - Hide loading skeletons that flicker into view: `.skeleton-loader { display: none !important; }`
 
-**2. Bisect a bug** (peep flagged a region, you want to know which delta is causing it):
+**2. Bisect a bug** (kuk flagged a region, you want to know which delta is causing it):
 - **Hide elements not yet implemented in the design** so they don't dominate the diff: `[data-feature="beta"] { display: none !important; }`. The design doesn't show that button — don't penalise the impl for it.
 - **Try a fix in-place** — inject `padding`, `font-size`, `color` adjustments, re-capture, re-run kuk, watch the score move. Faster than rebuilding the app between hypotheses.
 - **Force the suspected state** — e.g. add `.button.hover-state` styles directly so you can compare against a hover-state design without driving real input events.
@@ -168,10 +168,10 @@ Then use the **Read** tool on each path. Vision-inspect for obvious smell tests 
 
 **Decision:**
 
-- **All sanity checks pass** → proceed to Step 3 (run kuk). Do not manually verify image dimensions — peep reports dimension mismatches via exit code 3.
+- **All sanity checks pass** → proceed to Step 3 (run kuk). Do not manually verify image dimensions — kuk reports dimension mismatches via exit code 3.
 - **One or more red flags** → STOP. Do not run kuk. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. Peep would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
 
-**If peep exits with code 3 (dimension mismatch):** fix via `agent-browser set viewport` width adjustment and/or CSS `width` override on the element — re-capture, re-run. Do **not** use `sips -z` (resize/scale — distorts the image and defeats pixel-accurate comparison). `sips -c H W` (crop only) is a last resort only after confirming the overflow is a known extra margin, not a real visual bug. A height mismatch that isn't from a known CSS overflow is a real finding — report it, don't hide it by cropping.
+**If kuk exits with code 3 (dimension mismatch):** fix via `agent-browser set viewport` width adjustment and/or CSS `width` override on the element — re-capture, re-run. Do **not** use `sips -z` (resize/scale — distorts the image and defeats pixel-accurate comparison). `sips -c H W` (crop only) is a last resort only after confirming the overflow is a known extra margin, not a real visual bug. A height mismatch that isn't from a known CSS overflow is a real finding — report it, don't hide it by cropping.
 
 This step is cheap (two image reads) and saves cycles when the human-loop part of the workflow has gone off the rails.
 

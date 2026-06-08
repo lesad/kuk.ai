@@ -23,7 +23,7 @@ v0.2.0 — renamed from `peep` to `kuk` (name conflict). Output format selector 
 
 ```sh
 kuk design.png impl.png
-# peep
+# kuk
 #   design.png  1600x1200
 #   impl.png    1600x1200  match
 # score: 0.9958 (99.58% similar)
@@ -51,7 +51,7 @@ On dimension mismatch (exit 3), the same format conventions apply: `human` print
 
 ## Skill
 
-`skills/kuk-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: Figma desktop MCP is **required** — the skill gates on both MCP tools being loaded and the correct file being open before any REST call. It uses MCP to navigate and visually confirm the target node, then calls `skills/kuk-compare/scripts/figma-fetch.sh` to download the design PNG at `--scale 2` (Figma default), then captures the implementation via `agent-browser` at DPR=2 and runs `peep`.
+`skills/kuk-compare/` is a bundled Claude Code skill that drives the full design-vs-implementation workflow: Figma desktop MCP is **required** — the skill gates on both MCP tools being loaded and the correct file being open before any REST call. It uses MCP to navigate and visually confirm the target node, then calls `skills/kuk-compare/scripts/figma-fetch.sh` to download the design PNG at `--scale 2` (Figma default), then captures the implementation via `agent-browser` at DPR=2 and runs `kuk`.
 
 Enable globally (one-time):
 
@@ -66,7 +66,7 @@ Requirements: `FIGMA_TOKEN` env var (scope **File content: Read**, get one at <h
 ```sh
 export FIGMA_TOKEN=figd_...
 DESIGN=$(skills/kuk-compare/scripts/figma-fetch.sh <fileKey> <nodeId>)
-peep "$DESIGN" impl.png --format toon
+kuk "$DESIGN" impl.png --format toon
 ```
 
 Flags: `--scale N` (0.01–4.0, default `2` — the skill always uses the default), `--format png|jpg|svg|pdf` (default `png`), `--absolute|--no-absolute` (sets `use_absolute_bounds`, default on), `--out PATH|-` (default: auto-generated path under `$TMPDIR`; `-` streams bytes to stdout).
