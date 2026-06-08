@@ -51,6 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable similarity threshold via `--threshold` flag
 - Exit code reflects pass/fail based on threshold
 
-[Unreleased]: https://github.com/lesad/peep-rs/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/lesad/peep-rs/releases/tag/v0.2.0
-[0.1.0]: https://github.com/lesad/peep-rs/releases/tag/v0.1.0
+[Unreleased]: https://github.com/lesad/kuk.ai/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.2.0
+[0.1.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.1.0
