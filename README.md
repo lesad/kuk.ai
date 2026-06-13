@@ -76,6 +76,21 @@ kuk "$DESIGN" impl.png --format toon
 
 Flags: `--scale N` (0.01–4.0, default `2` — the skill always uses the default), `--format png|jpg|svg|pdf` (default `png`), `--absolute|--no-absolute` (sets `use_absolute_bounds`, default on), `--out PATH|-` (default: auto-generated path under `$TMPDIR`; `-` streams bytes to stdout).
 
+## Attribution
+
+kuk.ai stands on the shoulders of:
+
+- [`image-compare`](https://github.com/ChrisRega/image-compare) — Chris Regalia's Rust crate provides the hybrid MSSIM + RMS algorithm that powers the core comparison. Without it, kuk would just be a dumb pixel-by-pixel differ.
+- [`toon-format`](https://github.com/johannschopplich/toon-format) — Johann Schopplich's TOON encoder powers `--format toon`, the token-efficient output mode intended for LLM/agent consumption.
+- [Keep a Changelog](https://keepachangelog.com/) — the format this project's `CHANGELOG.md` follows.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Security issues: see [`SECURITY.md`](SECURITY.md).
+
 ## License
 
-MIT
+[MPL-2.0](LICENSE) — Mozilla Public License 2.0. You can use, modify, and
+distribute kuk freely, including in proprietary products. Modifications to
+kuk's own source files must remain under MPL-2.0 and be made available to
+recipients. See `LICENSE` for the full text.

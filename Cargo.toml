@@ -2,10 +2,14 @@
 name = "kuk-ai"
 version = "0.3.1"
 edition = "2024"
+authors = ["Adrián Leštinský <lestinsky.adrian@gmail.com>"]
 description = "CLI tool to compare two webpage screenshots and produce a similarity score with a red-overlay diff image."
-license = "MIT"
+license = "MPL-2.0"
 readme = "README.md"
 repository = "https://github.com/lesad/kuk.ai"
+homepage = "https://github.com/lesad/kuk.ai"
+keywords = ["screenshot", "diff", "visual-regression", "figma", "design"]
+categories = ["command-line-utilities", "visualization"]
 
 [[bin]]
 name = "kuk"
