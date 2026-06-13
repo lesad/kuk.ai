@@ -1,11 +1,11 @@
-# kuk.ai
-
 ```
 ▄▄           ▄▄              ▀▀
 ██ ▄█▀ ██ ██ ██ ▄█▀     ▀▀█▄ ██
 ████   ██ ██ ████      ▄█▀██ ██
 ██ ▀█▄ ▀██▀█ ██ ▀█▄ ██ ▀█▄██ ██▄
 ```
+
+# kuk.ai
 
 CLI that compares two webpage screenshots — design vs implementation — and produces
 a similarity score plus a red-overlay diff PNG highlighting the deltas.
