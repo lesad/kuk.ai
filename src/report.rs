@@ -274,8 +274,7 @@ mod tests {
         };
 
         let json = report.to_json().expect("to_json must succeed");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("JSON should parse");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON should parse");
 
         assert_eq!(parsed["a"]["path"].as_str(), Some("design.png"));
         assert_eq!(parsed["a"]["width"].as_u64(), Some(1600));
@@ -312,8 +311,7 @@ mod tests {
         };
 
         let json = report.to_json().expect("to_json must succeed");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("JSON should parse");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("JSON should parse");
         assert!(parsed.get("diff_path").is_none());
     }
 
@@ -346,7 +344,10 @@ mod tests {
             None,
         );
 
-        assert!(report.passed, "score == threshold should pass (>= semantics)");
+        assert!(
+            report.passed,
+            "score == threshold should pass (>= semantics)"
+        );
     }
 
     #[test]

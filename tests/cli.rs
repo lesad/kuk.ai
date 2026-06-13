@@ -140,7 +140,8 @@ fn different_pngs_without_fail_flag_should_exit_0_with_score_below_threshold() {
         .arg(&b)
         .arg("--output")
         .arg(&out)
-        .arg("--format").arg("json")
+        .arg("--format")
+        .arg("json")
         .assert()
         // No --fail flag: must exit 0 even though score < threshold
         .success()
@@ -221,7 +222,8 @@ fn different_pngs_with_fail_and_json_should_exit_1_with_passed_false() {
         .arg("--fail")
         .arg("--threshold")
         .arg("0.99")
-        .arg("--format").arg("json")
+        .arg("--format")
+        .arg("json")
         .assert()
         .failure()
         .code(1)
@@ -370,11 +372,13 @@ fn identical_pngs_with_format_toon_should_contain_sources_header_and_match() {
     assert!(toon.contains("dims_match: true"), "got:\n{toon}");
     assert!(toon.contains("passed: true"), "got:\n{toon}");
     assert!(
-        toon.lines().any(|l| l.contains("a,") && l.contains("32,32")),
+        toon.lines()
+            .any(|l| l.contains("a,") && l.contains("32,32")),
         "expected `a` row with 32x32, got:\n{toon}"
     );
     assert!(
-        toon.lines().any(|l| l.contains("b,") && l.contains("32,32")),
+        toon.lines()
+            .any(|l| l.contains("b,") && l.contains("32,32")),
         "expected `b` row with 32x32, got:\n{toon}"
     );
 }
