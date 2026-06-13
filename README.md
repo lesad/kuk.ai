@@ -1,8 +1,11 @@
-<p align="center">
-  <img src="hero.png" alt="kuk.ai" width="320">
-</p>
-
 # kuk.ai
+
+```
+▄▄           ▄▄              ▀▀
+██ ▄█▀ ██ ██ ██ ▄█▀     ▀▀█▄ ██
+████   ██ ██ ████      ▄█▀██ ██
+██ ▀█▄ ▀██▀█ ██ ▀█▄ ██ ▀█▄██ ██▄
+```
 
 CLI that compares two webpage screenshots — design vs implementation — and produces
 a similarity score plus a red-overlay diff PNG highlighting the deltas.
