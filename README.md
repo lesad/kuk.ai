@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/lesad/kuk.ai/assets/hero.png" alt="kuk.ai" width="320">
+  <img src="hero.png" alt="kuk.ai" width="320">
 </p>
 
 # kuk.ai
