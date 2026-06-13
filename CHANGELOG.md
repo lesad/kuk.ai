@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-13
+
+### Changed
+
+- README: refreshed banner glyphs and added WIP / early-beta notice — CLI is stable on its core path; `kuk-compare` skill is still in flux; breaking changes expected until v1.0.
+
 ## [0.3.0] - 2026-06-08
 
 ### Changed
@@ -53,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable similarity threshold via `--threshold` flag
 - Exit code reflects pass/fail based on threshold
 
-[Unreleased]: https://github.com/lesad/kuk.ai/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/lesad/kuk.ai/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/lesad/kuk.ai/releases/tag/v0.3.1
 [0.3.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.3.0
 [0.2.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.2.0
 [0.1.0]: https://github.com/lesad/kuk.ai/releases/tag/v0.1.0

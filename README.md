@@ -7,6 +7,12 @@
 
 # kuk.ai
 
+> [!WARNING]
+> **WIP — early beta.** The `kuk` CLI is usable and stable on its core path
+> (compare two PNGs, get score + diff). The bundled `kuk-compare` skill is
+> still in flux — flags, prompts, and the Figma-MCP gating logic may shift
+> between minor versions. Expect breaking changes until v1.0.
+
 CLI that compares two webpage screenshots — design vs implementation — and produces
 a similarity score plus a red-overlay diff PNG highlighting the deltas.
 
