@@ -30,3 +30,7 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    ignore:
+      # dtolnay/rust-toolchain tags ARE the Rust toolchain version, not action version.
+      # Pinned to @master and Rust version is passed via `with: toolchain:` — don't auto-bump the ref.
+      - dependency-name: "dtolnay/rust-toolchain"
