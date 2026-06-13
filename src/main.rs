@@ -11,6 +11,7 @@ use crate::cli::{Args, OutputFormat};
 use crate::error::PeepError;
 use crate::report::Report;
 
+/// Opaque red used to highlight per-pixel deltas on the diff PNG.
 const OVERLAY_COLOR: Rgba<u8> = Rgba([255, 0, 0, 255]);
 
 #[derive(serde::Serialize)]
