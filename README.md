@@ -1,12 +1,8 @@
-# kuk.ai
+<p align="center">
+  <img src="https://raw.githubusercontent.com/lesad/kuk.ai/assets/hero.png" alt="kuk.ai" width="320">
+</p>
 
-```
-  _ __     .---.    .---.    _ __        _ __ ___
- | '_ \   / ___ \  / ___ \  | '_ \      | '__/ __|
- | |_) |  | [O]─|  | [O]─|  | |_) |  _  | |  \__ \
- | .__/   \_____/  \_____/  | .__/  (_) |_|  |___/
- |_|                        |_|
-```
+# kuk.ai
 
 CLI that compares two webpage screenshots — design vs implementation — and produces
 a similarity score plus a red-overlay diff PNG highlighting the deltas.
