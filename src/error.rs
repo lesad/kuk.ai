@@ -3,7 +3,7 @@ use thiserror::Error;
 
 /// All errors that can occur in the kuk CLI.
 #[derive(Debug, Error)]
-pub enum PeepError {
+pub enum KukError {
     /// Failed to open or decode an input image.
     #[error("failed to load image {path}")]
     ImageLoad {
@@ -36,7 +36,7 @@ pub enum PeepError {
     },
 }
 
-impl PeepError {
+impl KukError {
     /// What to try next, for the errors where there is something to try.
     pub fn hint(&self) -> Option<&'static str> {
         match self {

@@ -12,7 +12,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use crate::cli::{Args, Command};
-use crate::error::PeepError;
+use crate::error::KukError;
 use crate::report::{Mismatch, Report};
 
 /// Opaque red used to highlight per-pixel deltas on the diff PNG.
@@ -46,7 +46,7 @@ fn compare(args: &Args) -> Result<ExitCode, Box<dyn Error>> {
                 ExitCode::SUCCESS
             })
         }
-        Err(PeepError::DimMismatch {
+        Err(KukError::DimMismatch {
             width_a,
             height_a,
             width_b,
@@ -92,7 +92,7 @@ fn describe(command: &Command) -> Result<ExitCode, Box<dyn Error>> {
     Ok(ExitCode::SUCCESS)
 }
 
-fn run(args: &Args, design: &Path, implementation: &Path) -> Result<Report, PeepError> {
+fn run(args: &Args, design: &Path, implementation: &Path) -> Result<Report, KukError> {
     let result = compare::run(design, implementation)?;
     let diff_path = if args.no_diff {
         None
@@ -103,7 +103,7 @@ fn run(args: &Args, design: &Path, implementation: &Path) -> Result<Report, Peep
             OVERLAY_COLOR,
             args.gain,
         );
-        diff.save(&args.output).map_err(|e| PeepError::DiffWrite {
+        diff.save(&args.output).map_err(|e| KukError::DiffWrite {
             path: args.output.clone(),
             source: e,
         })?;

@@ -3,7 +3,7 @@ use std::path::Path;
 use image::RgbaImage;
 use image_compare::Similarity;
 
-use crate::error::PeepError;
+use crate::error::KukError;
 
 /// The result of comparing a design image against an implementation screenshot.
 #[derive(Debug)]
@@ -25,17 +25,17 @@ pub struct CompareResult {
 ///
 /// # Errors
 ///
-/// - [`PeepError::ImageLoad`] if either file cannot be opened or decoded.
-/// - [`PeepError::DimMismatch`] if the two images have different dimensions.
-/// - [`PeepError::Compare`] if `image_compare` returns an error.
-pub fn run(design: &Path, implementation: &Path) -> Result<CompareResult, PeepError> {
+/// - [`KukError::ImageLoad`] if either file cannot be opened or decoded.
+/// - [`KukError::DimMismatch`] if the two images have different dimensions.
+/// - [`KukError::Compare`] if `image_compare` returns an error.
+pub fn run(design: &Path, implementation: &Path) -> Result<CompareResult, KukError> {
     let design_rgba = load_rgba(design)?;
     let impl_rgba = load_rgba(implementation)?;
 
     let (dw, dh) = design_rgba.dimensions();
     let (iw, ih) = impl_rgba.dimensions();
     if (dw, dh) != (iw, ih) {
-        return Err(PeepError::DimMismatch {
+        return Err(KukError::DimMismatch {
             width_a: dw,
             height_a: dh,
             width_b: iw,
@@ -55,9 +55,9 @@ pub fn run(design: &Path, implementation: &Path) -> Result<CompareResult, PeepEr
     })
 }
 
-fn load_rgba(path: &Path) -> Result<RgbaImage, PeepError> {
+fn load_rgba(path: &Path) -> Result<RgbaImage, KukError> {
     image::open(path)
-        .map_err(|e| PeepError::ImageLoad {
+        .map_err(|e| KukError::ImageLoad {
             path: path.to_path_buf(),
             source: e,
         })
@@ -137,7 +137,7 @@ mod tests {
         let err = run(file_a.path(), file_b.path()).expect_err("should fail with dim mismatch");
 
         match err {
-            PeepError::DimMismatch {
+            KukError::DimMismatch {
                 width_a,
                 height_a,
                 width_b,
@@ -159,7 +159,7 @@ mod tests {
         let err = run(&bad_path, good_file.path()).expect_err("should fail with image load error");
 
         match err {
-            PeepError::ImageLoad { path, .. } => {
+            KukError::ImageLoad { path, .. } => {
                 assert_eq!(path, bad_path);
             }
             other => panic!("expected ImageLoad, got: {other}"),
