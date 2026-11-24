@@ -22,7 +22,7 @@ with anti-aliased text.
 
 ## Status
 
-v0.2.0 — renamed from `peep` to `kuk` (name conflict). Output format selector (`--format human|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
+v0.3.1. Renamed from `peep` to `kuk` in 0.3.0 (name conflict). Output format selector (`--format human|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
 
 ## Usage
 

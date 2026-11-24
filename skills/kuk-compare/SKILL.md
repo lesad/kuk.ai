@@ -3,7 +3,7 @@ name: kuk-compare
 description: Use when visually comparing a Figma design against an implementation screenshot using the kuk CLI. Uses Figma desktop MCP for navigation and mandatory visual validation, then the REST API (via $SKILL_DIR/scripts/figma-fetch.sh) for the design PNG. Default impl capture is the agent-browser skill — viewport-precise, element-by-CSS-selector, supports CSS injection for diagnostic loops; Chrome DevTools is the manual fallback. Performs autonomous diff analysis on failure before asking the user.
 ---
 
-# Peep Visual Comparison
+# kuk visual comparison
 
 ## Overview
 
@@ -91,7 +91,7 @@ Invoke the `agent-browser` skill. Copy-paste capture sequence:
 #    Width matters for layout; height can be loose (element capture clips to content height)
 agent-browser set viewport <FigmaLogicalWidth> 960 2
 
-# 2. Navigate (if auth needed, run `agent-browser auth login` first)
+# 2. Navigate (if auth needed, run `agent-browser auth login <name>` first)
 agent-browser open <impl-url>
 agent-browser wait --load networkidle
 
@@ -106,7 +106,7 @@ EVALEOF
 agent-browser screenshot "[data-testid='target-element']" /tmp/impl.png
 ```
 
-If the page needs auth and `agent-browser auth login` doesn't cover it, fall back to Branch B.
+If the page needs auth and `agent-browser auth login <name>` (or a persistent `--profile`) doesn't cover it, fall back to Branch B.
 
 Selector preference (most to least stable):
 - `data-testid` attributes — stable across refactors, the project convention if it exists.
@@ -169,7 +169,7 @@ Then use the **Read** tool on each path. Vision-inspect for obvious smell tests 
 **Decision:**
 
 - **All sanity checks pass** → proceed to Step 3 (run kuk). Do not manually verify image dimensions — kuk reports dimension mismatches via exit code 3.
-- **One or more red flags** → STOP. Do not run kuk. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. Peep would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
+- **One or more red flags** → STOP. Do not run kuk. Report the specific mismatch to the user (e.g., "the impl looks like a mobile capture but the design is the desktop frame — can you re-capture at 1440px?") and wait for a re-capture before continuing. kuk would produce a near-zero score and a fully red diff image that adds no diagnostic value beyond what you can already see.
 
 **If kuk exits with code 3 (dimension mismatch):** fix via `agent-browser set viewport` width adjustment and/or CSS `width` override on the element — re-capture, re-run. Do **not** use `sips -z` (resize/scale — distorts the image and defeats pixel-accurate comparison). `sips -c H W` (crop only) is a last resort only after confirming the overflow is a known extra margin, not a real visual bug. A height mismatch that isn't from a known CSS overflow is a real finding — report it, don't hide it by cropping.
 

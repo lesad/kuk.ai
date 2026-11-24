@@ -15,3 +15,6 @@ Thumbs.db
 # Local diff output during dev
 /diff.png
 /*.diff.png
+
+# agent-browser persistent profile (SSO cookies, saved passwords)
+/.design-browser/
