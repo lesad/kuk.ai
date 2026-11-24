@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--json`, a shorthand for `--format json`.
+- `kuk completions <shell>` prints a completion script (bash, zsh, fish and the other shells `clap_complete` supports).
+- `kuk schema` prints every command, flag, exit code and an example of each output payload as JSON. It is built from the clap definitions, so it cannot drift from the binary.
+- `schema_version: 1` in every JSON and TOON payload, including the dimension-mismatch report.
+- `--help` ends with examples and the exit-code table.
+- Errors print a `hint:` line with the next step where there is one.
+
 ### Changed
 
+- `--format human` is now `--format text`. `human` still works as a hidden alias.
+- The text dimension-mismatch report no longer suggests `sips -z`. It says to re-capture at the design size, which is what the skill requires.
+- Paths that contain control characters are rejected at parse time (exit 2).
+- Key order in the dimension-mismatch JSON changed (`schema_version`, `a`, `b`, `dims_match`, `delta`, `error`). The fields are the same.
 - `CLAUDE.md`: brought in line with the repo. Commands now match CI, the known gaps against the shared CLI design rules are listed, and a "Current direction" section describes the point-query experiment (ask about one red point, get the element and component stack from the browser).
 - `.gitignore`: ignore `/.design-browser/`, the persistent `agent-browser` profile.
 
