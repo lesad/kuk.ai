@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `CLAUDE.md`: brought in line with the repo. Commands now match CI, the known gaps against the shared CLI design rules are listed, and a "Current direction" section describes the point-query experiment (ask about one red point, get the element and component stack from the browser).
+- `.gitignore`: ignore `/.design-browser/`, the persistent `agent-browser` profile.
+
+### Fixed
+
+- `kuk-compare` skill: removed two leftover `Peep` names, and `agent-browser auth login` now shows its required `<name>` argument.
+- README: the status line said v0.2.0; it now says v0.3.1.
+
 ## [0.3.1] - 2026-06-13
 
 ### Changed
