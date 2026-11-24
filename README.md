@@ -22,7 +22,7 @@ with anti-aliased text.
 
 ## Status
 
-v0.3.1. Renamed from `peep` to `kuk` in 0.3.0 (name conflict). Output format selector (`--format human|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
+v0.3.1. Renamed from `peep` to `kuk` in 0.3.0 (name conflict). Output format selector (`--format text|json|toon`), dimension reporting on every run, distinct exit code on dimension mismatch. Deferred for later: TOML config, multiple algorithms, side-by-side output, anti-aliasing toggle.
 
 ## Usage
 
@@ -41,18 +41,28 @@ Flags:
 - `--threshold <f64>` — minimum acceptable similarity, range `[0, 1]` (default: `0.99`; `1.0` = identical)
 - `--gain <f32>` — visibility gain on the per-pixel diff before clamp (default: `4.0`; higher = exaggerate small differences)
 - `--fail` — exit 1 when `score < threshold` (for CI)
-- `--format <human|json|toon>` — output format (default: `human`)
+- `--format <text|json|toon>` — output format (default: `text`; `human` still works as an alias)
+- `--json` — shorthand for `--format json`
 - `--no-diff` — skip writing the diff image
 
 Exit codes: `0` ok, `1` threshold breach (with `--fail`), `2` generic error, `3` dimension mismatch.
 
 ### Output formats
 
-- `human` — multi-line text with a dims block, similarity score, and diff path.
-- `json` — single compact JSON line with `a`, `b`, `dims_match`, `score`, `passed`, `diff_path`.
+- `text` — multi-line text with a dims block, similarity score, and diff path.
+- `json` — single compact JSON line with `schema_version`, `a`, `b`, `dims_match`, `score`, `passed`, `diff_path`.
 - `toon` — TOON encoding (token-efficient) with a `sources[2]{label,path,width,height}` array and scalar fields. Intended for LLM/agent consumption.
 
-On dimension mismatch (exit 3), the same format conventions apply: `human` prints a human-readable mismatch report; `json` and `toon` emit structured payloads with `dims_match: false`, a `delta`, and `error: dimension_mismatch`.
+On dimension mismatch (exit 3), the same format conventions apply: `text` prints a human-readable mismatch report; `json` and `toon` emit structured payloads with `dims_match: false`, a `delta`, and `error: dimension_mismatch`.
+
+Machine payloads carry `schema_version` (currently `1`). Fields are only added within a version.
+
+### Completions and schema
+
+```sh
+kuk completions zsh > ~/.zfunc/_kuk   # also bash, fish
+kuk schema                            # commands, flags, exit codes and output shapes as JSON
+```
 
 ## Skill
 

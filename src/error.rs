@@ -35,3 +35,16 @@ pub enum PeepError {
         source: image::ImageError,
     },
 }
+
+impl PeepError {
+    /// What to try next, for the errors where there is something to try.
+    pub fn hint(&self) -> Option<&'static str> {
+        match self {
+            Self::ImageLoad { .. } => Some("check that the path exists and is a PNG or JPEG image"),
+            Self::DiffWrite { .. } => {
+                Some("check that the output directory exists and is writable, or pass --no-diff")
+            }
+            Self::DimMismatch { .. } | Self::Compare(_) => None,
+        }
+    }
+}

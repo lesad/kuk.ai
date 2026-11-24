@@ -1,9 +1,14 @@
-use std::path::PathBuf;
+use std::error::Error;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use crate::cli::Args;
+use crate::cli::{Args, OutputFormat};
 use crate::compare::CompareResult;
+
+/// Version of the JSON and TOON payloads. Additive changes keep it; a removed
+/// or renamed field bumps it together with the crate's major version.
+pub const SCHEMA_VERSION: u32 = 1;
 
 /// Path + dimensions for one side of a comparison.
 #[derive(Debug, Clone, Serialize)]
@@ -16,6 +21,7 @@ pub struct ImageInfo {
 /// Outcome of a single comparison, suitable for both human and machine rendering.
 #[derive(Debug, Clone, Serialize)]
 pub struct Report {
+    pub schema_version: u32,
     pub a: ImageInfo,
     pub b: ImageInfo,
     pub dims_match: bool,
@@ -27,25 +33,77 @@ pub struct Report {
     pub diff_path: Option<PathBuf>,
 }
 
+/// Size difference between the two images, implementation minus design.
+#[derive(Debug, Clone, Serialize)]
+pub struct Delta {
+    pub width: i64,
+    pub height: i64,
+}
+
+/// What `kuk` reports instead of a [`Report`] when the two images differ in size.
+#[derive(Debug, Clone, Serialize)]
+pub struct Mismatch {
+    pub schema_version: u32,
+    pub a: ImageInfo,
+    pub b: ImageInfo,
+    pub dims_match: bool,
+    pub delta: Delta,
+    pub error: &'static str,
+}
+
 /// Serde shim used only for TOON encoding via `toon-format`.
 /// Designed so the crate emits the tabular `sources[2]{label,path,width,height}` form.
 #[derive(Serialize)]
 struct ToonReport<'a> {
+    schema_version: u32,
     sources: [ToonSource<'a>; 2],
     dims_match: bool,
     score: f64,
     threshold: f64,
     passed: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    diff_path: Option<&'a std::path::Path>,
+    diff_path: Option<&'a Path>,
+}
+
+#[derive(Serialize)]
+struct ToonMismatch<'a> {
+    schema_version: u32,
+    sources: [ToonSource<'a>; 2],
+    dims_match: bool,
+    delta: &'a Delta,
+    error: &'static str,
 }
 
 #[derive(Serialize)]
 struct ToonSource<'a> {
     label: &'a str,
-    path: &'a std::path::Path,
+    path: &'a Path,
     width: u32,
     height: u32,
+}
+
+fn toon_sources<'a>(a: &'a ImageInfo, b: &'a ImageInfo) -> [ToonSource<'a>; 2] {
+    [("a", a), ("b", b)].map(|(label, info)| ToonSource {
+        label,
+        path: &info.path,
+        width: info.width,
+        height: info.height,
+    })
+}
+
+fn encode_toon<T: Serialize>(shim: &T) -> String {
+    let mut out =
+        toon_format::encode_default(shim).expect("TOON encoding of a fixed shape cannot fail");
+    if !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
+fn encode_json<T: Serialize>(value: &T) -> Result<String, serde_json::Error> {
+    let mut s = serde_json::to_string(value)?;
+    s.push('\n');
+    Ok(s)
 }
 
 impl Report {
@@ -55,7 +113,7 @@ impl Report {
     /// written, or `None` if `--no-diff`.
     //
     // Invariant: only callable after `compare::run` returns Ok, which guarantees equal
-    // dims. The mismatch path constructs Report (or its equivalent payload) directly.
+    // dims. The mismatch path builds a `Mismatch` instead.
     pub fn from_compare(
         result: &CompareResult,
         args: &Args,
@@ -64,6 +122,7 @@ impl Report {
         diff_path: Option<PathBuf>,
     ) -> Self {
         Self {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: design_path,
                 width: result.width,
@@ -82,8 +141,17 @@ impl Report {
         }
     }
 
+    /// Render in the selected output format, newline-terminated.
+    pub fn render(&self, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        Ok(match format {
+            OutputFormat::Text => self.to_text(),
+            OutputFormat::Json => self.to_json()?,
+            OutputFormat::Toon => self.to_toon(),
+        })
+    }
+
     /// Format as a multi-line human-readable summary including a dims block.
-    pub fn to_human(&self) -> String {
+    pub fn to_text(&self) -> String {
         let diff_display = match &self.diff_path {
             Some(path) => path.display().to_string(),
             None => "(skipped)".to_string(),
@@ -118,40 +186,81 @@ impl Report {
     /// The serde shim `ToonReport` is shaped to produce the tabular
     /// `sources[2]{label,path,width,height}` form for token efficiency.
     pub fn to_toon(&self) -> String {
-        let shim = ToonReport {
-            sources: [
-                ToonSource {
-                    label: "a",
-                    path: &self.a.path,
-                    width: self.a.width,
-                    height: self.a.height,
-                },
-                ToonSource {
-                    label: "b",
-                    path: &self.b.path,
-                    width: self.b.width,
-                    height: self.b.height,
-                },
-            ],
+        encode_toon(&ToonReport {
+            schema_version: self.schema_version,
+            sources: toon_sources(&self.a, &self.b),
             dims_match: self.dims_match,
             score: self.score,
             threshold: self.threshold,
             passed: self.passed,
             diff_path: self.diff_path.as_deref(),
-        };
-        let mut out = toon_format::encode_default(&shim)
-            .expect("TOON encoding of fixed Report shape cannot fail");
-        if !out.ends_with('\n') {
-            out.push('\n');
-        }
-        out
+        })
     }
 
     /// Format as a compact JSON line terminated by `\n`.
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        let mut s = serde_json::to_string(self)?;
-        s.push('\n');
-        Ok(s)
+        encode_json(self)
+    }
+}
+
+impl Mismatch {
+    /// `design` and `implementation` are `(width, height)` in pixels.
+    pub fn new(
+        design_path: PathBuf,
+        impl_path: PathBuf,
+        design: (u32, u32),
+        implementation: (u32, u32),
+    ) -> Self {
+        Self {
+            schema_version: SCHEMA_VERSION,
+            a: ImageInfo {
+                path: design_path,
+                width: design.0,
+                height: design.1,
+            },
+            b: ImageInfo {
+                path: impl_path,
+                width: implementation.0,
+                height: implementation.1,
+            },
+            dims_match: false,
+            delta: Delta {
+                width: i64::from(implementation.0) - i64::from(design.0),
+                height: i64::from(implementation.1) - i64::from(design.1),
+            },
+            error: "dimension_mismatch",
+        }
+    }
+
+    /// Render in the selected output format, newline-terminated.
+    pub fn render(&self, format: OutputFormat) -> Result<String, Box<dyn Error>> {
+        Ok(match format {
+            OutputFormat::Text => self.to_text(),
+            OutputFormat::Json => encode_json(self)?,
+            OutputFormat::Toon => encode_toon(&ToonMismatch {
+                schema_version: self.schema_version,
+                sources: toon_sources(&self.a, &self.b),
+                dims_match: self.dims_match,
+                delta: &self.delta,
+                error: self.error,
+            }),
+        })
+    }
+
+    fn to_text(&self) -> String {
+        format!(
+            "kuk: dimension mismatch\n  {}  {}x{}\n  {}  {}x{}  ({:+}, {:+})\n\
+             re-capture the implementation at the design's size.\n\
+             do not resize either image: scaling distorts the comparison.\n",
+            self.a.path.display(),
+            self.a.width,
+            self.a.height,
+            self.b.path.display(),
+            self.b.width,
+            self.b.height,
+            self.delta.width,
+            self.delta.height,
+        )
     }
 }
 
@@ -196,8 +305,9 @@ mod tests {
     }
 
     #[test]
-    fn to_human_should_include_dims_block_and_score() {
+    fn to_text_should_include_dims_block_and_score() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("design.png"),
                 width: 1600,
@@ -215,7 +325,7 @@ mod tests {
             diff_path: Some(PathBuf::from("diff.png")),
         };
 
-        let output = report.to_human();
+        let output = report.to_text();
 
         assert!(output.contains("design.png"));
         assert!(output.contains("impl.png"));
@@ -230,8 +340,9 @@ mod tests {
     }
 
     #[test]
-    fn to_human_should_show_skipped_when_no_diff_path() {
+    fn to_text_should_show_skipped_when_no_diff_path() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("a.png"),
                 width: 100,
@@ -249,13 +360,14 @@ mod tests {
             diff_path: None,
         };
 
-        let output = report.to_human();
+        let output = report.to_text();
         assert!(output.contains("diff:  (skipped)"));
     }
 
     #[test]
     fn to_json_should_contain_a_b_and_dims_match() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("design.png"),
                 width: 1600,
@@ -293,6 +405,7 @@ mod tests {
     #[test]
     fn to_json_should_omit_diff_path_when_none() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("a.png"),
                 width: 10,
@@ -353,6 +466,7 @@ mod tests {
     #[test]
     fn to_toon_should_emit_sources_array_and_scalars() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("design.png"),
                 width: 1600,
@@ -386,6 +500,7 @@ mod tests {
     #[test]
     fn to_toon_should_render_whole_threshold_as_float() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("a.png"),
                 width: 10,
@@ -415,6 +530,7 @@ mod tests {
     #[test]
     fn to_toon_should_omit_diff_path_when_none() {
         let report = Report {
+            schema_version: SCHEMA_VERSION,
             a: ImageInfo {
                 path: PathBuf::from("a.png"),
                 width: 10,

@@ -222,7 +222,7 @@ When the score falls below the threshold, **do not immediately ask the user**. I
 ## CI Path
 
 ```bash
-kuk design.png impl.png --threshold 0.99 --fail --format json
+kuk design.png impl.png --threshold 0.99 --fail --json
 ```
 
 Exit codes: `0` = pass, `1` = threshold breach, `2` = error, `3` = dimension mismatch.
@@ -242,5 +242,6 @@ kuk design.png impl.png --threshold 0.99 --fail --format json --gain 8
 | `--threshold <f64>` | `0.99` | Minimum acceptable similarity (0 = no match, 1 = identical) |
 | `--gain <f32>` | `4.0` | Diff visibility multiplier — higher values amplify subtle differences |
 | `--fail` | off | Exit with code 1 when score < threshold |
-| `--format <human\|json\|toon>` | `human` | Output format. `json` / `toon` for machine/agent consumption |
+| `--format <text\|json\|toon>` | `text` | Output format. `toon` for agents, `json` for scripts |
+| `--json` | off | Shorthand for `--format json` |
 | `--no-diff` | off | Skip writing the diff image |

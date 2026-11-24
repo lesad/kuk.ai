@@ -282,6 +282,7 @@ fn missing_input_file_should_exit_2_with_error_on_stderr() {
         .failure()
         .code(2)
         .stderr(contains("failed to load image"))
+        .stderr(contains("hint:"))
         .stderr(contains("nonexistent.png"));
 }
 
@@ -304,6 +305,7 @@ fn dimension_mismatch_human_should_exit_3_with_dims_on_stdout() {
         .failure()
         .code(3)
         .stdout(contains("dimension mismatch"))
+        .stdout(contains("re-capture"))
         .stdout(contains("4x4"))
         .stdout(contains("8x8"));
 
@@ -324,7 +326,10 @@ fn help_flag_should_exit_0_and_show_all_flags() {
         .stdout(contains("--gain"))
         .stdout(contains("--fail"))
         .stdout(contains("--format"))
-        .stdout(contains("human"))
+        .stdout(contains("text"))
+        .stdout(contains("--json"))
+        .stdout(contains("Examples:"))
+        .stdout(contains("Exit codes:"))
         .stdout(contains("json"))
         .stdout(contains("toon"))
         .stdout(contains("--no-diff"))
@@ -410,6 +415,7 @@ fn dimension_mismatch_format_json_should_exit_3_with_structured_payload() {
     let json: serde_json::Value =
         serde_json::from_slice(&output).expect("stdout should be valid JSON on mismatch");
 
+    assert_eq!(json["schema_version"].as_u64(), Some(1));
     assert_eq!(json["dims_match"].as_bool(), Some(false));
     assert_eq!(json["error"].as_str(), Some("dimension_mismatch"));
     assert_eq!(json["a"]["width"].as_u64(), Some(4));
@@ -479,4 +485,156 @@ fn identical_pngs_with_format_human_should_print_dims_block() {
         .stdout(contains("32x32"))
         .stdout(contains("match"))
         .stdout(contains("score: 1.0000"));
+}
+
+fn json_stdout(args: &[&std::ffi::OsStr]) -> serde_json::Value {
+    let output = kuk()
+        .args(args)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&output).expect("stdout should be valid JSON")
+}
+
+#[test]
+fn json_flag_should_match_format_json_and_carry_schema_version() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("a.png");
+    let b = dir.path().join("b.png");
+
+    write_solid_png(&a, 8, 8, Rgba([10, 20, 30, 255]));
+    write_solid_png(&b, 8, 8, Rgba([10, 20, 30, 255]));
+
+    let shorthand = json_stdout(&[
+        a.as_ref(),
+        b.as_ref(),
+        "--no-diff".as_ref(),
+        "--json".as_ref(),
+    ]);
+    let explicit = json_stdout(&[
+        a.as_ref(),
+        b.as_ref(),
+        "--no-diff".as_ref(),
+        "--format".as_ref(),
+        "json".as_ref(),
+    ]);
+
+    assert_eq!(shorthand, explicit);
+    assert_eq!(shorthand["schema_version"].as_u64(), Some(1));
+    assert_eq!(shorthand["passed"].as_bool(), Some(true));
+}
+
+#[test]
+fn format_human_should_still_print_the_text_report() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("a.png");
+    let b = dir.path().join("b.png");
+
+    write_solid_png(&a, 8, 8, Rgba([10, 20, 30, 255]));
+    write_solid_png(&b, 8, 8, Rgba([10, 20, 30, 255]));
+
+    for format in ["text", "human"] {
+        kuk()
+            .arg(&a)
+            .arg(&b)
+            .arg("--no-diff")
+            .arg("--format")
+            .arg(format)
+            .assert()
+            .success()
+            .stdout(contains("score: 1.0000"));
+    }
+}
+
+#[test]
+fn format_toon_should_carry_schema_version() {
+    let dir = tempdir().expect("tempdir");
+    let a = dir.path().join("a.png");
+    let b = dir.path().join("b.png");
+
+    write_solid_png(&a, 8, 8, Rgba([10, 20, 30, 255]));
+    write_solid_png(&b, 8, 8, Rgba([10, 20, 30, 255]));
+
+    kuk()
+        .arg(&a)
+        .arg(&b)
+        .arg("--no-diff")
+        .arg("--format")
+        .arg("toon")
+        .assert()
+        .success()
+        .stdout(contains("schema_version: 1"));
+}
+
+#[test]
+fn path_with_control_character_should_exit_2_without_reading_it() {
+    kuk()
+        .arg("a\u{1b}.png")
+        .arg("b.png")
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(contains("control character"));
+}
+
+#[test]
+fn completions_should_print_a_script_for_each_supported_shell() {
+    for shell in ["bash", "zsh", "fish"] {
+        kuk()
+            .arg("completions")
+            .arg(shell)
+            .assert()
+            .success()
+            .stdout(contains("kuk"))
+            .stdout(contains("threshold"));
+    }
+}
+
+#[test]
+fn schema_should_describe_flags_exit_codes_and_output() {
+    let schema = json_stdout(&["schema".as_ref()]);
+
+    assert_eq!(schema["name"].as_str(), Some("kuk"));
+    assert_eq!(schema["schema_version"].as_u64(), Some(1));
+
+    let commands = schema["commands"].as_array().expect("commands array");
+    let names: Vec<&str> = commands.iter().filter_map(|c| c["name"].as_str()).collect();
+    assert_eq!(names, ["kuk", "completions", "schema"]);
+
+    let flags: Vec<&str> = commands[0]["args"]
+        .as_array()
+        .expect("args array")
+        .iter()
+        .filter_map(|a| a["long"].as_str())
+        .collect();
+    for flag in [
+        "output",
+        "threshold",
+        "gain",
+        "fail",
+        "format",
+        "json",
+        "no-diff",
+    ] {
+        assert!(
+            flags.contains(&flag),
+            "schema is missing --{flag}: {flags:?}"
+        );
+    }
+
+    let codes: Vec<u64> = schema["exit_codes"]
+        .as_array()
+        .expect("exit_codes array")
+        .iter()
+        .filter_map(|c| c["code"].as_u64())
+        .collect();
+    assert_eq!(codes, [0, 1, 2, 3]);
+
+    assert_eq!(
+        schema["output"]["dimension_mismatch_example"]["error"].as_str(),
+        Some("dimension_mismatch")
+    );
+    assert!(schema["output"]["report_example"]["score"].is_f64());
 }

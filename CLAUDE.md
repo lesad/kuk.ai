@@ -29,11 +29,12 @@ and macOS. Run all four checks before calling work done.
 
 One binary, one module per concern under `src/`:
 
-- `main.rs`: entrypoint, exit-code mapping, dimension-mismatch printer
-- `cli.rs`: clap `Args`, `OutputFormat { Human, Json, Toon }`
+- `main.rs`: entrypoint and exit-code mapping
+- `cli.rs`: clap `Args`, `OutputFormat { Text, Json, Toon }`, the `completions` and `schema` subcommands, the exit-code table
 - `compare.rs`: `image-compare` hybrid (MSSIM on luma, RMS on chroma, alpha)
 - `overlay.rs`: per-pixel red-overlay renderer (uses `--gain`)
-- `report.rs`: three serializers: human, JSON, TOON (`toon-format` crate through a serde shim)
+- `report.rs`: `Report` and `Mismatch`, each rendered as text, JSON or TOON (`toon-format` crate through a serde shim), and `SCHEMA_VERSION`
+- `schema.rs`: `kuk schema`, built from the clap definitions and real payloads
 - `error.rs`: `PeepError` (thiserror); `DimMismatch` is a distinct variant
 
 `PeepError` still carries the pre-rename name. Rename it only as its own change.
@@ -56,14 +57,24 @@ stderr.
 
 ## CLI design rules
 
-The shared CLI design rules apply here. `kuk` predates them and has known gaps.
-Close a gap when the work touches that area; do not widen one.
+The shared CLI design rules apply here. How `kuk` meets them:
 
-- `--format` takes `human|json|toon`; the rules name the text format `text` and
-  want `--json` as a shorthand.
-- No shell completions and no self-describing `commands --json` or `schema`.
-- The JSON and TOON payloads carry no version field.
-- `--output` defaults to `diff.png` in the current directory.
+- `kuk <design> <impl>` stays the main form. `completions <shell>` and `schema`
+  are subcommands next to it. New capabilities are subcommands, not more flags
+  on the compare form.
+- `--format text|json|toon`, with `--json` as the shorthand. `human` is a
+  hidden alias for `text`; do not remove it before 1.0.
+- JSON and TOON payloads carry `schema_version` (`report::SCHEMA_VERSION`).
+  Add fields freely. Removing or renaming one bumps it and is a major version.
+- `kuk schema` and the `--help` footer read the exit codes from
+  `cli::EXIT_CODES`. Change the table, not the prose.
+- Paths with control characters are refused at parse time. Path traversal is
+  not checked: `kuk` reads and writes the paths its caller names, by design.
+- An error prints what failed, the cause chain, and a `hint:` line when there
+  is a next step (`PeepError::hint`).
+
+Known gaps: no man page (`clap_mangen`), and text is the default even when
+stdout is not a terminal, so agents must pass `--format toon`.
 
 ## Skill: `skills/kuk-compare/`
 
