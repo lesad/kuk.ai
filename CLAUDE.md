@@ -35,9 +35,7 @@ One binary, one module per concern under `src/`:
 - `overlay.rs`: per-pixel red-overlay renderer (uses `--gain`)
 - `report.rs`: `Report` and `Mismatch`, each rendered as text, JSON or TOON (`toon-format` crate through a serde shim), and `SCHEMA_VERSION`
 - `schema.rs`: `kuk schema`, built from the clap definitions and real payloads
-- `error.rs`: `PeepError` (thiserror); `DimMismatch` is a distinct variant
-
-`PeepError` still carries the pre-rename name. Rename it only as its own change.
+- `error.rs`: `KukError` (thiserror); `DimMismatch` is a distinct variant
 
 `tests/cli.rs` is black-box integration through `assert_cmd` and `tempfile`. It
 asserts on stdout and exit codes. Any change to the CLI surface adds a test
@@ -71,7 +69,7 @@ The shared CLI design rules apply here. How `kuk` meets them:
 - Paths with control characters are refused at parse time. Path traversal is
   not checked: `kuk` reads and writes the paths its caller names, by design.
 - An error prints what failed, the cause chain, and a `hint:` line when there
-  is a next step (`PeepError::hint`).
+  is a next step (`KukError::hint`).
 
 Known gaps: no man page (`clap_mangen`), and text is the default even when
 stdout is not a terminal, so agents must pass `--format toon`.
